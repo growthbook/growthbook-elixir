@@ -1,0 +1,121 @@
+name: mix test
+
+on: [push, pull_request]
+
+jobs:
+  mix-format:
+    name: Check formatting
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Set up Elixir
+        uses: erlef/setup-beam@v1
+        with:
+          otp-version: '24.0'
+          elixir-version: '1.13.2'
+
+      - name: Check formatting
+        run: mix format --check-formatted
+
+  dialyzer:
+    name: Dialyzer
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Set up Elixir
+        uses: erlef/setup-beam@v1
+        with:
+          otp-version: '24.0'
+          elixir-version: '1.13.2'
+
+      - name: Retrieve cached mix deps
+        uses: actions/cache@v2
+        with:
+          path: deps
+          key: ${{ runner.os }}-${{ matrix.otp }}-${{ matrix.elixir }}-mix-${{ hashFiles(format('{0}{1}', github.workspace, '/mix.lock')) }}
+          restore-keys: |
+            ${{ runner.os }}-${{ matrix.otp }}-${{ matrix.elixir }}-mix-
+
+      - name: Retrieve cached _build
+        uses: actions/cache@v2
+        with:
+          path: _build
+          key: ${{ runner.os }}-${{ matrix.otp }}-${{ matrix.elixir }}-build-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-${{ matrix.otp }}-${{ matrix.elixir }}-build-
+
+      - name: Retrieve cached PLT
+        uses: actions/cache@v2
+        with:
+          path: .dialyzer
+          key: ${{ runner.os }}-${{ matrix.otp }}-${{ matrix.elixir }}-dialyzer-${{ hashFiles('**/mix.lock') }}-${{ hashFiles('**/lib/*.ex') }}
+          restore-keys: |
+            ${{ runner.os }}-${{ matrix.otp }}-${{ matrix.elixir }}-dialyzer-${{ hashFiles('**/mix.lock') }}-${{ hashFiles('**/lib/*.ex') }}
+            ${{ runner.os }}-${{ matrix.otp }}-${{ matrix.elixir }}-dialyzer-${{ hashFiles('**/mix.lock') }}-
+            ${{ runner.os }}-${{ matrix.otp }}-${{ matrix.elixir }}-dialyzer-
+
+      - name: Install dependencies
+        run: |
+          mix local.rebar --force
+          mix local.hex --force
+          mix deps.get
+          mix deps.compile
+
+      - name: Run Dialyzer
+        run: mix dialyzer --format short 2>&1
+
+  test-elixir:
+    name: Test with OTP ${{ matrix.otp }} and Elixir ${{ matrix.elixir }}
+    runs-on: ubuntu-latest
+
+    env:
+      MIX_ENV: test
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - otp: '23.0'
+            elixir: '1.13.2'
+          - otp: '24.0'
+            elixir: '1.13.2'
+
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Set up Elixir
+        uses: erlef/setup-beam@v1
+        with:
+          otp-version: ${{ matrix.otp }}
+          elixir-version: ${{ matrix.elixir }}
+
+      - name: Retrieve cached mix deps
+        uses: actions/cache@v2
+        with:
+          path: deps
+          key: ${{ runner.os }}-${{ matrix.otp }}-${{ matrix.elixir }}-mix-${{ hashFiles(format('{0}{1}', github.workspace, '/mix.lock')) }}
+          restore-keys: |
+            ${{ runner.os }}-${{ matrix.otp }}-${{ matrix.elixir }}-mix-
+
+      - name: Retrieve cached _build
+        uses: actions/cache@v2
+        with:
+          path: _build
+          key: ${{ runner.os }}-${{ matrix.otp }}-${{ matrix.elixir }}-build-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-${{ matrix.otp }}-${{ matrix.elixir }}-build-
+
+      - name: Install dependencies
+        run: |
+          mix local.rebar --force
+          mix local.hex --force
+          mix deps.get
+          mix deps.compile
+
+      - name: Compile project
+        run: mix compile
+
+      - name: Run tests
+        run: mix test
