@@ -16,7 +16,7 @@ defmodule GrowthBook.MixProject do
 
       # Hex
       package: package(),
-      description: "Elixir SDK for GrowthBook",
+      description: "Elixir SDK for running A/B tests with GrowthBook",
 
       # Docs
       name: "GrowthBook",
