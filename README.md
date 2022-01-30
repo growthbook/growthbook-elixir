@@ -39,7 +39,7 @@ config = Jason.decode!("""
 {
   "overrides": {
     "checkout-v2": {
-      "status": "stopped",
+      "status": "running",
       "coverage": 1,
       "weights": [0.5, 0.5],
       "force": 0

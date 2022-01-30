@@ -256,9 +256,9 @@ defmodule GrowthBook do
         Logger.debug("#{key}: Forced variation from context: #{context.forced_variations[key]}")
         get_experiment_result(context, experiment, context.forced_variations[key])
 
-      # 5. Exclude if experiment is inactive
-      experiment.active? == false ->
-        Logger.debug("#{key}: Experiment is inactive")
+      # 5. Exclude if experiment is inactive or in draft
+      experiment.active? == false or experiment.status == "draft" ->
+        Logger.debug("#{key}: Experiment is inactive (or in draft)")
         get_experiment_result(context, experiment)
 
       # 6. Skip if hash value is empty
@@ -292,6 +292,10 @@ defmodule GrowthBook do
       # 12. Exclude if in QA mode
       context.qa_mode? ->
         Logger.debug("#{key}: Skipping experiment because QA mode is enabled")
+        get_experiment_result(context, experiment)
+
+      # 12.5. Exclude if experiment is stopped
+      experiment.status == "stopped" ->
         get_experiment_result(context, experiment)
 
       # 13. Experiment is active

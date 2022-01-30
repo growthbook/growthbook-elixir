@@ -12,13 +12,15 @@ defmodule GrowthBook.ExperimentOverride do
   Defines overrides for an existing hard-coded experiment. Has a number of optional properties:
 
   - **`weights`** (`[float()]`) - How to weight traffic between variations. Must add to `1`.
-  - **`active`** (`boolean()`) - If set to `false`, always return the control (first variation)
+  - **`active?`** (`boolean()`) - If set to `false`, always return the control (first variation)
   - **`coverage`** (`float()`) - What percent of users should be included in the experiment
     (between 0 and 1, inclusive)
   - **`condition`** (`t:GrowthBook.Condition.t/0`) - Optional targeting condition
   - **`namespace`** (`t:GrowthBook.namespace/0`) - Adds the experiment to a namespace
   - **`force`** (`integer()`) - All users included in the experiment will be forced into the
     specific variation index
+  - **`status`** (`String.t()`) - The status of the experiment, one of
+    `"draft"`, `"running"`, `"stopped"`
   """
   @type t() :: %__MODULE__{
           weights: [float()] | nil,
@@ -27,7 +29,8 @@ defmodule GrowthBook.ExperimentOverride do
           namespace: GrowthBook.namespace() | nil,
           force: integer() | nil,
           hash_attribute: String.t() | nil,
-          active?: boolean() | nil
+          active?: boolean() | nil,
+          status: String.t() | nil
         }
 
   defstruct weights: nil,
@@ -36,5 +39,6 @@ defmodule GrowthBook.ExperimentOverride do
             namespace: nil,
             force: nil,
             hash_attribute: nil,
-            active?: nil
+            active?: nil,
+            status: nil
 end

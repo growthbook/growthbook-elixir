@@ -24,6 +24,8 @@ defmodule GrowthBook.Experiment do
     specific variation index
   - **`hash_attribute`** (`String.t()`) - What user attribute should be used to assign variations
     (defaults to `id`)
+  - **`status`** (`String.t()`) - The status of the experiment, one of
+    `"draft"`, `"running"`, `"stopped"`
   """
   @type t() :: %__MODULE__{
           key: String.t(),
@@ -34,7 +36,8 @@ defmodule GrowthBook.Experiment do
           namespace: GrowthBook.namespace() | nil,
           force: integer() | nil,
           hash_attribute: String.t() | nil,
-          active?: boolean() | nil
+          active?: boolean() | nil,
+          status: String.t() | nil
         }
 
   @typedoc """
@@ -53,7 +56,8 @@ defmodule GrowthBook.Experiment do
             namespace: nil,
             force: nil,
             hash_attribute: nil,
-            active?: nil
+            active?: nil,
+            status: nil
 
   @doc """
   Applies overrides to the experiment, if configured.
