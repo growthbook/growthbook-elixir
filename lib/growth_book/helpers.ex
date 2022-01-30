@@ -1,6 +1,6 @@
 defmodule GrowthBook.Helpers do
   @moduledoc """
-  GrowthBook internal helper functions
+  GrowthBook internal helper functions.
 
   A collection of helper functions for use internally inside the `GrowthBook` library. You should
   not (have to) use any of these functions in your own application. They are documented for
