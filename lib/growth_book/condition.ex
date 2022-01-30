@@ -57,7 +57,7 @@ defmodule GrowthBook.Condition do
   - `$lte`: `left <= right`
   - `$gt`: `left > right`
   - `$gte`: `left >= right`
-  - `$exists`: `(left == null) != right`
+  - `$exists`: `(left in [nil, :undefined]) != right`
   - `$type`: `typeof left == right`
   - `$regex`: `right |> Regex.compile!() |> Regex.match?(left)`
 
@@ -117,7 +117,7 @@ defmodule GrowthBook.Condition do
     do: {condition, ""} == Integer.parse(value)
 
   defp eval_condition_value(condition, value) when is_boolean(condition),
-    do: !!Helpers.cast_boolish(value) == condition
+    do: Helpers.cast_boolish(value) == condition
 
   defp eval_condition_value(condition, value) do
     if is_list(condition) or not operator_object?(condition) do
@@ -136,6 +136,26 @@ defmodule GrowthBook.Condition do
   @spec eval_operator_condition(String.t(), term(), term()) :: boolean()
   defp eval_operator_condition("$eq", left, right), do: left == right
   defp eval_operator_condition("$ne", left, right), do: left != right
+
+  # Perform JavaScript-like type coercion
+  # see https://262.ecma-international.org/5.1/#sec-11.8.5
+  @type_coercion_operators ["$lt", "$lte", "$gt", "$gte"]
+  defp eval_operator_condition(operator, left, right)
+       when is_number(left) and is_binary(right) and operator in @type_coercion_operators do
+    case Float.parse(right) do
+      {right, _rest} -> eval_operator_condition(operator, left, right)
+      _unparseable -> false
+    end
+  end
+
+  defp eval_operator_condition(operator, left, right)
+       when is_number(right) and is_binary(left) and operator in @type_coercion_operators do
+    case Float.parse(left) do
+      {left, _rest} -> eval_operator_condition(operator, left, right)
+      _unparseable -> false
+    end
+  end
+
   defp eval_operator_condition("$lt", left, right), do: left < right
   defp eval_operator_condition("$lte", left, right), do: left <= right
   defp eval_operator_condition("$gt", left, right), do: left > right
