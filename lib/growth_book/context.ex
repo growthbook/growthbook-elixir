@@ -29,7 +29,10 @@ defmodule GrowthBook.Context do
           attributes: attributes(),
           features: features(),
           overrides: experiment_overrides(),
-          forced_variations: forced_variations()
+          forced_variations: forced_variations(),
+          url: String.t() | nil,
+          enabled?: boolean(),
+          qa_mode?: boolean()
         }
 
   @typedoc """
