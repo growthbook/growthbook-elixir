@@ -6,7 +6,7 @@
 
 <!-- MDOC !-->
 
-`GrowthBook` is a [GrowthBook](https://growthbook.org) SDK for Elixir/OTP.
+`GrowthBook` is a [GrowthBook](https://growthbook.io) SDK for Elixir/OTP.
 
 This SDK follows the guidelines set out in [GrowthBook's documentation](https://docs.growthbook.io/lib/build-your-own), and the API is tested on conformance with the test cases from the JS SDK.
 
@@ -110,6 +110,6 @@ end
 ## License
 
 This library is MIT licensed. See the
-[LICENSE](https://raw.github.com/jeroenvisser101/growthbook/main/LICENSE)
+[LICENSE](https://raw.github.com/jeroenvisser101/growthbook-elixir/main/LICENSE)
 file in this repository for details.
 
