@@ -68,6 +68,14 @@ defmodule GrowthBook.Condition do
   - `$all`: performs the given condition(s) of left for each element of right (without support support for expressions)
   - `$size`: `eval_contition_value(left, length(right))`
 
+  ### Version comparison
+  - `$veq`: `versions are equal`
+  - `$vne`: `versions are not equal`
+  - `$vlt`: `the first version is lesser than the second version`
+  - `$vlte`: `the first version is lesser than or equal to the second version`
+  - `$vgt`: `the first version is greater than the second version`
+  - `$vgte`: `the first version is greater than or equal to the second version`
+
   ## Examples
 
       iex> GrowthBook.Condition.eval_condition(%{"hello" => "world"}, %{
@@ -160,6 +168,19 @@ defmodule GrowthBook.Condition do
   defp eval_operator_condition("$lte", left, right), do: left <= right
   defp eval_operator_condition("$gt", left, right), do: left > right
   defp eval_operator_condition("$gte", left, right), do: left >= right
+
+  defp eval_operator_condition(op, left, right) when op in ["$veq", "$vne", "$vlt", "$vlte", "$vgt", "$vgte"] do
+    lversion = padded_version(left)
+    rversion = padded_version(right)
+    case op do
+      "$veq" -> lversion == rversion
+      "$vne" -> lversion != rversion
+      "$vlt" -> lversion <  rversion
+      "$vlte" -> lversion <=rversion
+      "$vgt" -> lversion > rversion
+      "$vgte" -> lversion >=rversion
+    end
+  end
 
   defp eval_operator_condition("$exists", left, right),
     do: if(right, do: left not in [nil, :undefined], else: left in [nil, :undefined])
@@ -277,4 +298,21 @@ defmodule GrowthBook.Condition do
   def get_type(:undefined), do: "undefined"
   def get_type(_attribute_value), do: "unknown"
 
+  @doc false
+  @spec padded_version(String.t()) :: [String.t()]
+  def padded_version("v" <> s), do: padded_version(s)
+  def padded_version(s) when is_binary(s) do
+    parts = String.split(s, "+")
+    |> hd()
+    |> String.split([".", "-"])
+    |> Enum.map(fn s ->
+      if Regex.match?(~r/^\d+$/, s),
+        do: String.pad_leading(s, 5),
+        else: s
+    end)
+
+    if length(parts) == 3,
+      do: parts ++ ["~"],
+      else: parts
+  end
 end
