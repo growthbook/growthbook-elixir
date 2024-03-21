@@ -8,20 +8,14 @@ defmodule GrowthBook.Helpers do
   changes in the library's public API (or cause a minor/major semver update).
   """
 
-  @doc """
-  Hashes a string to a float between `0.0` and `1.0`, using the
-  [Fowler-Noll-Vo](https://en.wikipedia.org/wiki/Fowler%E2%80%93Noll%E2%80%93Vo_hash_function)
-  (`fnv32a`) algorithm.
-  """
-  @spec hash(String.t()) :: float()
-  def hash(string), do: rem(fnv32a(string), 1000) / 1000
+  alias GrowthBook.Hash
 
   @doc """
   This checks if a userId is within an experiment namespace or not.
   """
   @spec in_namespace?(String.t(), GrowthBook.namespace()) :: boolean()
   def in_namespace?(user_id, {namespace, min, max}) do
-    hash = hash("#{user_id}__#{namespace}")
+    hash = Hash.hash("__#{namespace}", user_id, 1)
     hash >= min and hash < max
   end
 
@@ -108,23 +102,4 @@ defmodule GrowthBook.Helpers do
   def cast_boolish(nil), do: false
   def cast_boolish(:undefined), do: false
   def cast_boolish(_truthy), do: true
-
-  @fnv32_prime 16_777_619
-  @fnv32_init 2_166_136_261
-  @fnv32_mask 0xFFFFFFFF
-
-  # Fowler-Noll-Vo 32-bit FNV-1a hash
-  @doc false
-  @spec fnv32a(binary(), integer()) :: integer()
-  def fnv32a(data, state \\ @fnv32_init)
-
-  def fnv32a(<<head::8, tail::binary>>, state) do
-    import Bitwise, only: [band: 2, bxor: 2]
-
-    hash = band(bxor(state, head) * @fnv32_prime, @fnv32_mask)
-
-    fnv32a(tail, hash)
-  end
-
-  def fnv32a(<<>>, state), do: state
 end

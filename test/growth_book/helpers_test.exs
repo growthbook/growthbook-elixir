@@ -3,12 +3,6 @@ defmodule GrowthBook.HelpersTest do
   alias GrowthBook.Helpers
   doctest GrowthBook.Helpers
 
-  describe "Helpers.fnv32a/1" do
-    test "hashes correctly" do
-      assert 1_211_955_754 == Helpers.fnv32a("elixir")
-    end
-  end
-
   describe "Helpers.get_equal_weights/1" do
     test "returns an empty list if count < 1" do
       assert [] == Helpers.get_equal_weights(0)

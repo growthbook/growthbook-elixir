@@ -6,11 +6,16 @@ defmodule GrowthBook.ConformanceTest do
 
   cases = "test/fixtures/cases.json" |> File.read!() |> Jason.decode!()
 
-  describe "GrowthBook.Helpers.hash/1" do
-    for [input, expected] <- cases["hash"] do
-      test "with #{inspect(input)} returns #{inspect(expected)}" do
-        input = unquote(input)
-        assert unquote(expected) == GrowthBook.Helpers.hash(input)
+  describe "GrowthBook.Hash.hash/1" do
+    @describetag :hash
+
+    for [seed, value, version, expected] <- cases["hash"] do
+      test "hash v#{inspect(version)} with seed #{inspect(seed)}  and value #{inspect(value)} returns #{inspect(expected)}" do
+        seed = unquote(seed)
+        value = unquote(value)
+        version = unquote(version)
+
+        assert unquote(expected) == GrowthBook.Hash.hash(seed, value, version)
       end
     end
   end
