@@ -76,11 +76,13 @@ defmodule GrowthBook.ConformanceTest do
   end
 
   describe "GrowthBook.Helpers.get_equal_weights/1" do
-    for [desc, count, expected] <- cases["getQueryStringOverride"] do
-      test desc do
+    @describetag :get_equal_weights
+
+    for [count, expected] <- cases["getEqualWeights"] do
+      test "equal weights for #{count}" do
         count = unquote(count)
 
-        assert unquote(expected) == GrowthBook.Helpers.get_equal_weights(count)
+        assert unquote(expected) == GrowthBook.Helpers.get_equal_weights(count) |> Enum.map(& Float.round(&1, 8))
       end
     end
   end
