@@ -21,6 +21,8 @@ defmodule GrowthBook.ConformanceTest do
   end
 
   describe "GrowthBook.Helpers.get_bucket_ranges/3" do
+    @describetag :get_bucket_range
+
     for [desc, input, expected] <- cases["getBucketRange"] do
       test desc do
         [count, coverage, weights] = unquote(input)
@@ -32,6 +34,8 @@ defmodule GrowthBook.ConformanceTest do
   end
 
   describe "GrowthBook.Helpers.choose_variation/2" do
+    @describetag :choose_variation
+
     for [desc, hash, bucket_ranges, expected] <- cases["chooseVariation"] do
       test desc do
         hash = unquote(hash)
@@ -44,6 +48,8 @@ defmodule GrowthBook.ConformanceTest do
   end
 
   describe "GrowthBook.Helpers.get_query_string_override/3" do
+    @describetag :get_query_string_override
+
     for [desc, experiment_id, url, count, expected] <- cases["getQueryStringOverride"] do
       test desc do
         experiment_id = unquote(experiment_id)
@@ -57,12 +63,14 @@ defmodule GrowthBook.ConformanceTest do
   end
 
   describe "GrowthBook.Helpers.in_namespace?/2" do
-    for [desc, user_id, namespace, expected] <- cases["getQueryStringOverride"] do
+    @describetag :in_namespace
+
+    for [desc, user_id, namespace, expected] <- cases["inNamespace"] do
       test desc do
         user_id = unquote(user_id)
-        namespace = unquote(namespace)
+        namespace = GrowthBook.Config.namespace_from_config(unquote(namespace))
 
-        assert unquote(expected) == GrowthBook.Helpers.in_namespace?(experiment_id, url)
+        assert unquote(expected) == GrowthBook.Helpers.in_namespace?(user_id, namespace)
       end
     end
   end
