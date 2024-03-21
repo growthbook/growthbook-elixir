@@ -88,6 +88,8 @@ defmodule GrowthBook.ConformanceTest do
   end
 
   describe "GrowthBook.Condition.eval_condition/2" do
+    @describetag :eval_condition
+
     for {[desc, condition, attributes, expected], index} <-
           Enum.with_index(cases["evalCondition"]) do
       test "##{index}: #{desc}" do

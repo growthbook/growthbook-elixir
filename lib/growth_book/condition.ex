@@ -164,8 +164,13 @@ defmodule GrowthBook.Condition do
   defp eval_operator_condition("$exists", left, right),
     do: if(right, do: left not in [nil, :undefined], else: left in [nil, :undefined])
 
+  defp eval_operator_condition("$in", _, right) when not is_list(right), do: false
+  defp eval_operator_condition("$in", left, right) when is_list(left) do
+    Enum.any?(left, &(&1 in right))
+  end
   defp eval_operator_condition("$in", left, right), do: left in right
-  defp eval_operator_condition("$nin", left, right), do: left not in right
+  defp eval_operator_condition("$nin", _, right) when not is_list(right), do: false
+  defp eval_operator_condition("$nin", left, right), do: not eval_operator_condition("$in", left, right)
   defp eval_operator_condition("$not", left, right), do: not eval_condition_value(right, left)
 
   defp eval_operator_condition("$size", left, right) when is_list(left),
@@ -271,4 +276,5 @@ defmodule GrowthBook.Condition do
   def get_type(attribute_value) when is_nil(attribute_value), do: "null"
   def get_type(:undefined), do: "undefined"
   def get_type(_attribute_value), do: "unknown"
+
 end
