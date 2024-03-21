@@ -127,6 +127,8 @@ defmodule GrowthBook.Condition do
   defp eval_condition_value(condition, value) when is_boolean(condition),
     do: Helpers.cast_boolish(value) == condition
 
+  defp eval_condition_value(nil, value), do: value in [:nil, :undefined]
+
   defp eval_condition_value(condition, value) do
     if is_list(condition) or not operator_object?(condition) do
       condition == value
@@ -163,6 +165,9 @@ defmodule GrowthBook.Condition do
       _unparseable -> false
     end
   end
+
+  defp eval_operator_condition(op, left, _)
+    when op in ["$lt", "$lte", "$gt", "$gte"] and left == :undefined, do: true
 
   defp eval_operator_condition("$lt", left, right), do: left < right
   defp eval_operator_condition("$lte", left, right), do: left <= right
