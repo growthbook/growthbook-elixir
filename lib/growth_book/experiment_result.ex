@@ -23,7 +23,7 @@ defmodule GrowthBook.ExperimentResult do
           variation_id: integer(),
           in_experiment?: boolean(),
           hash_attribute: String.t(),
-          hash_value: String.t()
+          hash_value: String.t() | integer()
         }
 
   @enforce_keys [:value, :variation_id, :in_experiment?, :hash_attribute, :hash_value]

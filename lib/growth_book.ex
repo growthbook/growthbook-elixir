@@ -13,6 +13,7 @@ defmodule GrowthBook do
   alias GrowthBook.FeatureResult
   alias GrowthBook.FeatureRule
   alias GrowthBook.Helpers
+  alias GrowthBook.Hash
 
   require Logger
 
@@ -151,7 +152,7 @@ defmodule GrowthBook do
 
               false
 
-            Helpers.hash(hash_value <> feature_id) > rule.coverage ->
+            Hash.hash(rule.seed || feature_id, hash_value, rule.hash_version) > rule.coverage ->
               Logger.debug(
                 "#{feature_id}: Skipping rule #{rule.key} because it's outside coverage"
               )
@@ -182,6 +183,7 @@ defmodule GrowthBook do
             coverage: rule.coverage,
             weights: rule.weights,
             hash_attribute: rule.hash_attribute,
+            hash_version: rule.hash_version,
             namespace: rule.namespace
           }
 
@@ -242,7 +244,7 @@ defmodule GrowthBook do
     bucket_ranges =
       Helpers.get_bucket_ranges(variations_count, experiment.coverage || 1.0, experiment.weights)
 
-    hash = if hash_value, do: Helpers.hash(hash_value <> key)
+    hash = if hash_value, do: Hash.hash(experiment.seed || key, hash_value, experiment.hash_version)
     assigned_variation = Helpers.choose_variation(hash, bucket_ranges)
 
     cond do

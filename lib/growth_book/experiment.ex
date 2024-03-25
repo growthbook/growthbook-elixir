@@ -36,6 +36,8 @@ defmodule GrowthBook.Experiment do
           namespace: GrowthBook.namespace() | nil,
           force: integer() | nil,
           hash_attribute: String.t() | nil,
+          hash_version: integer() | nil,
+          seed: String.t() | nil,
           active?: boolean() | nil,
           status: String.t() | nil
         }
@@ -57,7 +59,9 @@ defmodule GrowthBook.Experiment do
             force: nil,
             hash_attribute: nil,
             active?: nil,
-            status: nil
+            status: nil,
+            hash_version: nil,
+            seed: nil
 
   @doc """
   Applies overrides to the experiment, if configured.
