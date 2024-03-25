@@ -6,11 +6,16 @@ defmodule GrowthBook.Config do
   (or your local cache) to values that can be used directly with the `GrowthBook.Context` module.
   """
 
-  alias GrowthBook.Context
-  alias GrowthBook.Feature
-  alias GrowthBook.FeatureRule
-  alias GrowthBook.Experiment
-  alias GrowthBook.ExperimentOverride
+  alias GrowthBook.{
+    Context,
+    Feature,
+    FeatureRule,
+    Experiment,
+    ExperimentOverride,
+    VariationMeta,
+    BucketRange,
+    Filter
+  }
 
   @typedoc """
   A map with string keys, as returned when decoding JSON using Jason/Poison
@@ -50,16 +55,29 @@ defmodule GrowthBook.Config do
   def feature_rules_from_config([_ | _] = feature_rules, feature_key) do
     Enum.map(feature_rules, fn feature_rule ->
       namespace = feature_rule |> Map.get("namespace") |> namespace_from_config()
+      meta = Map.get(feature_rule, "meta", []) |> Enum.map(&VariationMeta.from_json/1)
+      ranges = Map.get(feature_rule, "ranges", []) |> Enum.map(&BucketRange.from_json/1)
+      parent_conditions = Map.get(feature_rule, "parentConditions", []) |> Enum.map(&ParentCondition.from_json/1)
+      filters = Map.get(feature_rule, "filters", []) |> Enum.map(&Filter.from_json/1)
 
       %FeatureRule{
-        key: Map.get(feature_rule, "key") || feature_key,
-        force: Map.get(feature_rule, "force"),
         condition: Map.get(feature_rule, "condition"),
+        parent_conditions: parent_conditions,
         coverage: feature_rule |> Map.get("coverage") |> ensure_float(),
-        hash_attribute: Map.get(feature_rule, "hashAttribute"),
-        namespace: namespace,
+        force: Map.get(feature_rule, "force"),
         variations: Map.get(feature_rule, "variations"),
-        weights: Map.get(feature_rule, "weights")
+        key: Map.get(feature_rule, "key") || feature_key,
+        weights: Map.get(feature_rule, "weights"),
+        namespace: namespace,
+        hash_attribute: Map.get(feature_rule, "hashAttribute"),
+        hash_version: Map.get(feature_rule, "hashVersion") || 1,
+        range: Map.get(feature_rule, "range") |> BucketRange.from_json(),
+        ranges: ranges,
+        meta: meta,
+        filters: filters,
+        seed: Map.get(feature_rule, "seed"),
+        name: Map.get(feature_rule, "name"),
+        phase: Map.get(feature_rule, "phase")
       }
     end)
   end
