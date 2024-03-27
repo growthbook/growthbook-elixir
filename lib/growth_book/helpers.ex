@@ -8,7 +8,7 @@ defmodule GrowthBook.Helpers do
   changes in the library's public API (or cause a minor/major semver update).
   """
 
-  alias GrowthBook.Hash
+  alias GrowthBook.{Hash, BucketRange}
 
   @doc """
   This checks if a userId is within an experiment namespace or not.
@@ -18,6 +18,39 @@ defmodule GrowthBook.Helpers do
     hash = Hash.hash("__#{namespace}", user_id, 1)
     hash >= min and hash < max
   end
+
+  @doc """
+  Determines if a number n is within the provided range.
+  """
+  @spec in_range?(number(), BucketRange.t()) :: boolean()
+  def in_range?(n, {min, max}), do: n >=min and n < max
+
+  @doc """
+  Determines if the user is part of a gradual feature rollout.
+  """
+  @spec included_in_rollout?(map(), String.t(), String.t(), BucketRange.t(), number(), integer()) ::boolean()
+  def included_in_rollout?(_attributes, _seed, _hash_attribute, nil, nil, _hash_version), do: true
+  def included_in_rollout?(attributes, seed, hash_attribute, range, coverage, hash_version) do
+    hash_attribute = coalesce(hash_attribute, "id")
+    hash_value = attributes[hash_attribute] || ""
+    case hash_value do
+      "" -> false
+      _ ->
+        n = Hash.hash(seed, hash_value, hash_version || 1)
+        case {range, coverage} do
+          {nil, coverage} -> n <=coverage
+          {range, _} -> in_range?(n, range)
+        end
+    end
+  end
+
+  @spec coalesce([any()]) ::any()
+  @spec coalesce(any(), any()) ::any()
+  def coalesce(v1, v2), do: coalesce([v1, v2])
+  def coalesce([last]), do: last
+  def coalesce([nil | next]), do: coalesce(next)
+  def coalesce(["" | next]), do: coalesce(next)
+  def coalesce([v | _]), do: v
 
   @doc """
   Returns an list of floats with `count` items that are all equal and sum to 1. For example,  would return `[0.5, 0.5]`.

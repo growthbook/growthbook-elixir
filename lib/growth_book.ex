@@ -5,15 +5,18 @@ defmodule GrowthBook do
              |> String.split("<!-- MDOC !-->")
              |> Enum.fetch!(1)
 
-  alias GrowthBook.Condition
-  alias GrowthBook.Context
-  alias GrowthBook.Feature
-  alias GrowthBook.Experiment
-  alias GrowthBook.ExperimentResult
-  alias GrowthBook.FeatureResult
-  alias GrowthBook.FeatureRule
-  alias GrowthBook.Helpers
-  alias GrowthBook.Hash
+  alias GrowthBook.{
+    Condition,
+    Context,
+    Feature,
+    Experiment,
+    ExperimentResult,
+    FeatureResult,
+    FeatureRule,
+    Helpers,
+    Hash,
+    Filter
+  }
 
   require Logger
 
@@ -108,103 +111,103 @@ defmodule GrowthBook do
 
   This function takes a context and a feature key, and returns a `GrowthBook.FeatureResult` struct.
   """
-  @spec feature(Context.t(), feature_key()) :: FeatureResult.t()
-  def feature(%Context{features: features} = context, feature_id)
-      when is_map_key(features, feature_id) do
-    %{^feature_id => %Feature{} = feature} = features
+  @spec feature(Context.t(), feature_key(), [feature_key()]) :: FeatureResult.t()
 
-    cond do
-      # No rules, using default value
-      feature.rules == [] -> get_feature_result(feature.default_value, :default_value)
-      true -> find_matching_feature_rule(context, feature, feature_id)
+  def feature(context, feature_id, path \\ [])
+
+  def feature(%Context{features: features} = context, feature_id, path) do
+    case Map.get(features, feature_id) do
+      nil ->
+        Logger.debug(
+          "No feature with id: #{feature_id}, known features are: #{inspect(Map.keys(context.features))}"
+        )
+        get_feature_result(nil, :unknown_feature)
+      %Feature{rules: rules} = feature ->
+        eval_rules(context, feature_id, feature, rules, path)
     end
   end
 
-  def feature(%Context{} = context, missing_feature_id) do
-    Logger.debug(
-      "No feature with id: #{missing_feature_id}, known features are: #{inspect(Map.keys(context.features))}"
-    )
-
-    get_feature_result(nil, :unknown_feature)
+  @doc false
+  defp eval_rules(%Context{} = _context, _feature_id, %Feature{} = feature, [], _path) do
+    get_feature_result(feature.default_value, :default_value)
   end
 
-  @doc false
-  @spec find_matching_feature_rule(Context.t(), Feature.t(), feature_key()) :: FeatureResult.t()
-  def find_matching_feature_rule(%Context{} = context, %Feature{} = feature, feature_id) do
-    Enum.find_value(feature.rules, fn %FeatureRule{} = rule ->
-      cond do
-        # Skip this rule if the condition doesn't evaluate to true
-        rule.condition && not Condition.eval_condition(context.attributes, rule.condition) ->
-          Logger.debug(
-            "#{feature_id}: Skipping rule #{rule.key} because condition evaluated to false"
-          )
+  defp eval_rules(%Context{} = context, feature_id, %Feature{} = feature, [%FeatureRule{} = rule | rest], path) do
+    with true <- eval_parent_conditions(context, rule.parent_conditions, [feature_id | path]),
+         true <- not filtered_out?(context, rule.filters) || :skip,
+         true <- eval_rule_condition(context.attributes, rule.condition) || :skip,
+         true <- eval_forced_rule(context.attributes, feature_id, rule) do
+      eval_rules(context, feature_id, feature, rest, path)
+    else
+      :skip -> eval_rules(context, feature_id, feature, rest, path)
+      %FeatureResult{} = result -> result
+    end
+  end
 
-          false
+  defp eval_forced_rule(_, _, %FeatureRule{force: nil}), do: true
+  defp eval_forced_rule(attributes, feature_id, %FeatureRule{} = rule) do
+    if Helpers.included_in_rollout?(
+          attributes,
+          Helpers.coalesce(rule.seed, feature_id),
+          rule.hash_attribute,
+          rule.range,
+          rule.coverage,
+          rule.hash_version
+      )
+    do
+      # TODO add rule.tracks callbacks calls
+      get_feature_result(rule.force, :force)
+    else
+      :skip
+    end
+  end
 
-        # Feature being forced with coverage
-        not is_nil(rule.force) and not is_nil(rule.coverage) ->
-          hash_value = Map.get(context.attributes, rule.hash_attribute || "id")
 
-          # If the hash value is empty, or if the rule is excluded because of coverage, skip
-          cond do
-            hash_value in [nil, ""] ->
-              Logger.debug("#{feature_id}: Skipping rule #{rule.key} because hash value is empty")
+  defp eval_rule_condition(_, nil), do: true
+  defp eval_rule_condition(attributes, condition),
+    do: Condition.eval_condition(attributes, condition)
 
-              false
 
-            Hash.hash(rule.seed || feature_id, hash_value, rule.hash_version) > rule.coverage ->
-              Logger.debug(
-                "#{feature_id}: Skipping rule #{rule.key} because it's outside coverage"
-              )
+  defp eval_parent_conditions(_, [], _), do: true
 
-              false
+  defp eval_parent_conditions(%Context{} = context, [parent_condition | rest], path) do
+    %ParentCondition{
+      id: parent_feature_id,
+      gate:  gate,
+      condition: condition
+    } = parent_condition
 
-            true ->
-              Logger.debug("#{feature_id}: Force value from rule #{rule.key}")
-
-              get_feature_result(rule.force, :force)
-          end
-
-        # Feature being forced without coverage
-        not is_nil(rule.force) ->
-          Logger.debug("#{feature_id}: Force value from rule #{rule.key}")
-          get_feature_result(rule.force, :force)
-
-        # Skip invalid rule
-        rule.variations in [[], nil] ->
-          Logger.debug("#{feature_id}: Skipping rule #{rule.key} because it has no variations")
-          false
-
-        # Run the experiment
-        true ->
-          experiment = %Experiment{
-            key: rule.key || feature_id,
-            variations: rule.variations,
-            coverage: rule.coverage,
-            weights: rule.weights,
-            hash_attribute: rule.hash_attribute,
-            hash_version: rule.hash_version,
-            namespace: rule.namespace
-          }
-
-          %ExperimentResult{} = experiment_result = run(context, experiment)
-
-          if experiment_result.in_experiment? do
-            get_feature_result(
-              experiment_result.value,
-              :experiment,
-              experiment,
-              experiment_result
-            )
-          else
-            Logger.debug(
-              "#{feature_id}: Skipping rule #{rule.key} because it is not in the experiment"
-            )
-
-            false
+    if parent_feature_id in path do
+      Logger.debug(
+        "Cycling feature prerequisite: #{parent_feature_id}, path: #{inspect(path)}"
+      )
+      get_feature_result(nil, :cyclic_prerequisite)
+    else
+      case feature(context, parent_feature_id, path) do
+        %FeatureResult{source: :cyclic_prerequisite} = cyclic_error ->
+          cyclic_error
+        %FeatureResult{value: value} ->
+          case Condition.eval_condition(%{"value" => value}, condition) do
+            true -> eval_parent_conditions(context, rest, path)
+            false when gate == true -> get_feature_result(nil, :prerequisite)
+            false -> :skip
           end
       end
-    end) || get_feature_result(feature.default_value, :default_value)
+    end
+  end
+
+  defp filtered_out?(context, filters) when is_list(filters) do
+    Enum.any?(filters, &filtered_out?(context, &1))
+  end
+  defp filtered_out?(%Context{} = context, %Filter{} = filter) do
+    hash_attribute = filter.attribute
+    hash_value = context.attributes[hash_attribute] || ""
+    case hash_value do
+      "" -> true
+      _ ->
+        n = Hash.hash(filter.seed, hash_value, filter.hash_version)
+        not Enum.any?(filter.ranges, &Helpers.in_range?(n, &1))
+    end
   end
 
   @doc """

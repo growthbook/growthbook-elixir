@@ -106,6 +106,8 @@ defmodule GrowthBook.ConformanceTest do
   end
 
   describe "GrowthBook.feature/2" do
+    @describetag :feature
+
     for {[desc, context_config, feature_key, expected], index} <-
           Enum.with_index(cases["feature"]) do
       test "##{index}: #{desc}" do

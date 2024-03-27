@@ -32,7 +32,7 @@ defmodule GrowthBook.FeatureResult do
         }
 
   @typedoc "The source of a feature"
-  @type source() :: :unknown_feature | :default_value | :force | :experiment
+  @type source() :: :unknown_feature | :cyclic_prerequisite | :prerequisite | :default_value | :force | :experiment
 
   @enforce_keys [:value, :source, :on, :off, :on?, :off?]
   defstruct value: nil,
@@ -47,6 +47,8 @@ defmodule GrowthBook.FeatureResult do
   @doc "Helper function to convert string sources to atoms"
   @spec feature_source_from_string(String.t()) :: source()
   def feature_source_from_string("defaultValue"), do: :default_value
+  def feature_source_from_string("cyclicPrerequisite"), do: :cyclic_prerequisite
+  def feature_source_from_string("prerequisite"), do: :prerequisite
   def feature_source_from_string("force"), do: :force
   def feature_source_from_string("experiment"), do: :experiment
   def feature_source_from_string(_unknown), do: :unknown_feature
