@@ -234,9 +234,6 @@ defmodule GrowthBook do
   def run(%Context{} = context, %Experiment{key: key, variations: variations} = experiment) do
     variations_count = length(variations)
 
-    # 2.5. Merge in experiment overrides from context
-    experiment = Experiment.merge_with_overrides(experiment, context.overrides)
-
     query_string_override =
       not is_nil(context.url) &&
         Helpers.get_query_string_override(key, context.url, variations_count)

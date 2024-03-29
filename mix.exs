@@ -66,7 +66,6 @@ defmodule GrowthBook.MixProject do
         ],
         Experiments: [
           GrowthBook.Experiment,
-          GrowthBook.ExperimentOverride,
           GrowthBook.ExperimentResult
         ],
         Features: [

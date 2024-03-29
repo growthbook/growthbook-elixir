@@ -8,7 +8,6 @@ defmodule GrowthBook.Context do
   """
 
   alias GrowthBook.Feature
-  alias GrowthBook.ExperimentOverride
 
   @typedoc """
   Context
@@ -28,7 +27,6 @@ defmodule GrowthBook.Context do
   @type t() :: %__MODULE__{
           attributes: attributes(),
           features: features(),
-          overrides: experiment_overrides(),
           forced_variations: forced_variations(),
           url: String.t() | nil,
           enabled?: boolean(),
@@ -59,12 +57,6 @@ defmodule GrowthBook.Context do
   """
   @type attributes() :: %{required(String.t()) => term()}
 
-  @typedoc """
-  Experiment overrides
-
-  A map with feature names as keys and `%ExperimentOverride{}` struct as values.
-  """
-  @type experiment_overrides() :: %{required(GrowthBook.feature_key()) => ExperimentOverride.t()}
 
   @typedoc """
   Features
@@ -108,7 +100,6 @@ defmodule GrowthBook.Context do
 
   defstruct attributes: %{},
             features: %{},
-            overrides: %{},
             forced_variations: %{},
             url: nil,
             enabled?: true,

@@ -11,7 +11,6 @@ defmodule GrowthBook.Config do
     Feature,
     FeatureRule,
     Experiment,
-    ExperimentOverride,
     VariationMeta,
     BucketRange,
     Filter
@@ -83,31 +82,6 @@ defmodule GrowthBook.Config do
   end
 
   def feature_rules_from_config(_feature_rules_not_found_or_empty, _feature_key), do: []
-
-  @doc """
-  Converts experiment overrides configuration to a map of experiment overrides.
-
-  Use this function to take the configuration retrieved from the `/config` API endpoint and
-  convert it into a usable map of `GrowthBook.ExperimentOverride` structs.
-  """
-  @spec experiment_overrides_from_config(json_map()) :: Context.experiment_overrides()
-  def experiment_overrides_from_config(experiment_overrides_config) do
-    Map.new(experiment_overrides_config, fn {experiment_key, override_config} ->
-      namespace = override_config |> Map.get("namespace") |> namespace_from_config()
-
-      experiment_override = %ExperimentOverride{
-        active?: Map.get(override_config, "active"),
-        namespace: namespace,
-        condition: Map.get(override_config, "condition"),
-        coverage: override_config |> Map.get("coverage") |> ensure_float(),
-        hash_attribute: Map.get(override_config, "hashAttribute"),
-        force: Map.get(override_config, "force"),
-        weights: Map.get(override_config, "weights")
-      }
-
-      {experiment_key, experiment_override}
-    end)
-  end
 
   @doc """
   Converts experiment configuration into an `GrowthBook.Experiment`.
