@@ -42,6 +42,11 @@ defmodule GrowthBook.FeatureRule do
   - **`seed`** (`string()`) - Seed to use for hashing
   - **`name`** (`String.t()`) - Human-readable name for the experiment
   - **`phase`** (`String.t()`) - The phase id of the experiment
+  - **`fallback_attribute`** (`String.t/0`) - When using sticky bucketing, can be used as a fallback to assign variations
+  - **`disable_sticky_bucketing` (`boolean()`) - If true, sticky bucketing will be disabled for this experiment.
+    (Note: sticky bucketing is only available if a StickyBucketingService is provided in the Context)
+  - **`bucket_version`** (`integer()`) - An sticky bucket version number that can be used to force a re-bucketing of users (default to 0)
+  - **`min_bucket_version`** (`integer()`) - Any users with a sticky bucket version less than this will be excluded from the experiment
   """
   @type t() :: %__MODULE__{
     condition: Condition.t() | nil,
@@ -53,6 +58,7 @@ defmodule GrowthBook.FeatureRule do
     weights: [float()] | nil,
     namespace: GrowthBook.namespace() | nil,
     hash_attribute: String.t() | nil,
+    fallback_attribute: String.t() | nil,
     hash_version: integer() | nil,
     range: BucketRange.t() | nil,
     ranges: [BucketRange.t()] | nil,
@@ -60,7 +66,10 @@ defmodule GrowthBook.FeatureRule do
     filters: [Filter.t()] | nil,
     seed: String.t() | nil,
     name: String.t() | nil,
-    phase: String.t() | nil
+    phase: String.t() | nil,
+    disable_sticky_bucketing: boolean() | nil,
+    bucket_version: integer() | nil,
+    min_bucket_version: integer() | nil
   }
 
   defstruct [
@@ -80,6 +89,10 @@ defmodule GrowthBook.FeatureRule do
     :filters,
     :seed,
     :name,
-    :phase
+    :phase,
+    :fallback_attribute,
+    :disable_sticky_bucketing,
+    :bucket_version,
+    :min_bucket_version
   ]
 end
