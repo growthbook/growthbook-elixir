@@ -39,7 +39,7 @@ defmodule GrowthBook.MixProject do
   defp deps do
     [
       {:ex_doc, "~> 0.27", only: :dev, runtime: false},
-      {:jason, "~> 1.3", only: :test, runtime: false},
+      {:jason, "~> 1.3", only: [:test, :dev], runtime: false},
       {:dialyxir, "~> 1.1", only: :dev, runtime: false}
     ]
   end
