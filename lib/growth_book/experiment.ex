@@ -43,17 +43,17 @@ defmodule GrowthBook.Experiment do
   @type t() :: %__MODULE__{
     key: String.t(),
     variations: [variation()],
-    weights: [float()] | nil,
+    weights: [float()],
     active?: boolean() | nil,
     coverage: float() | nil,
-    ranges: [BucketRange.t()] | nil,
+    ranges: [BucketRange.t()],
     condition: Condition.t() | nil,
     namespace: GrowthBook.namespace() | nil,
     force:  integer() | nil,
     hash_attribute: String.t() | nil,
     fallback_attribute: String.t() | nil,
     hash_version:  integer() | nil,
-    meta: [VariationMeta.t()] | nil,
+    meta: [VariationMeta.t()],
     filters: [Filter.t()] | nil,
     seed: String.t() | nil,
     name: String.t() | nil,
@@ -100,7 +100,7 @@ defmodule GrowthBook.Experiment do
   @spec from_rule(String.t(), FeatureRule.t()) ::t()
   def from_rule(feature_id, %FeatureRule{} = rule) do
     %Experiment{
-      variations: rule.variations,
+      variations: rule.variations || [],
       key: rule.key || feature_id,
       coverage: rule.coverage,
       weights: rule.weights,
@@ -117,7 +117,9 @@ defmodule GrowthBook.Experiment do
       seed: rule.seed,
       hash_version: rule.hash_version,
       filters: rule.filters,
-      condition: rule.condition
+      condition: rule.condition,
+      active?: true
     }
   end
+
 end

@@ -81,28 +81,45 @@ defmodule GrowthBook do
   end
 
   @doc false
-  # NOTE: This is called "getResult" in the JS SDK, but the guide says "getExperimentResult"
-  @spec get_experiment_result(Context.t(), Experiment.t() | nil, integer(), boolean()) ::
-          ExperimentResult.t()
+  @spec get_experiment_result(
+    Context.t(),
+    Experiment.t(),
+    String.t() | nil,
+    integer() | nil,
+    boolean() | nil,
+    number() | nil
+  ) :: ExperimentResult.t()
   def get_experiment_result(
         %Context{} = context,
         %Experiment{} = experiment,
-        variation_id \\ 0,
-        in_experiment? \\ false
+        feature_id \\ nil,
+        variation_id \\ -1,
+        hash_used \\ false,
+        bucket \\ nil
       ) do
-    hash_attribute = experiment.hash_attribute || "id"
 
-    variation_id =
-      if variation_id < 0 or variation_id > length(experiment.variations),
-        do: 0,
-        else: variation_id
+    {in_experiment, variation_id} =
+      if variation_id < 0 or variation_id >= length(experiment.variations),
+        do: {false, 0},
+        else: {true, variation_id}
+
+    hash_attribute = experiment.hash_attribute || "id"
+    hash_value = context.attributes[hash_attribute] || ""
+
+    meta = if is_list(experiment.meta) do Enum.at(experiment.meta, variation_id) end
 
     %ExperimentResult{
-      value: Enum.at(experiment.variations, variation_id),
+      key: if meta && meta.key do meta.key else to_string(variation_id) end,
+      feature_id: feature_id,
+      in_experiment?: in_experiment,
+      hash_used?: hash_used,
       variation_id: variation_id,
-      in_experiment?: in_experiment?,
+      value: Enum.at(experiment.variations, variation_id),
       hash_attribute: hash_attribute,
-      hash_value: Map.get(context.attributes, hash_attribute) || ""
+      hash_value: hash_value,
+      name: if meta && meta.name do meta.name end,
+      passthrough?: meta && meta.passthrough?,
+      bucket: bucket
     }
   end
 
@@ -136,8 +153,11 @@ defmodule GrowthBook do
     with true <- eval_parent_conditions(context, rule.parent_conditions, [feature_id | path]),
          true <- not filtered_out?(context, rule.filters) || :skip,
          true <- eval_rule_condition(context.attributes, rule.condition) || :skip,
-         true <- eval_forced_rule(context.attributes, feature_id, rule) do
-      eval_rules(context, feature_id, feature, rest, path)
+         true <- eval_forced_rule(context.attributes, feature_id, rule),
+         exp = %Experiment{} = Experiment.from_rule(feature_id, rule),
+         result = %ExperimentResult{} = run(context, exp, feature_id),
+         true <- (result.in_experiment? && !result.passthrough?) || :skip do
+      get_feature_result(result.value, :experiment, exp, result)
     else
       :skip -> eval_rules(context, feature_id, feature, rest, path)
       %FeatureResult{} = result -> result
@@ -162,11 +182,9 @@ defmodule GrowthBook do
     end
   end
 
-
   defp eval_rule_condition(_, nil), do: true
   defp eval_rule_condition(attributes, condition),
     do: Condition.eval_condition(attributes, condition)
-
 
   defp eval_parent_conditions(_, [], _), do: true
 
@@ -215,95 +233,77 @@ defmodule GrowthBook do
 
   This function takes a context and an experiment, and returns an `GrowthBook.ExperimentResult` struct.
   """
-  @spec run(Context.t(), Experiment.t()) :: ExperimentResult.t()
-  def run(context, experiment)
+  @spec run(Context.t(), Experiment.t(), String.t() | nil) :: ExperimentResult.t()
+  def run(%Context{} = context, %Experiment{} = exp, feature_id) do
+    with variations_count <- length(exp.variations),
+         true <- variations_count >=2 || {:error, "has less than 2 variations"},
+         true <- context.enabled? || {:error, "disabled"},
+         :ok <- check_query_string_override(context, exp),
+         :ok <- check_forced_variation(context, exp),
+         true <- exp.active? || {:error, "is not active"},
+         {:ok, _hash_attribute, hash_value} <- get_experiment_hash_value(context, exp),
+         true <- not filtered_out?(context, exp.filters) || {:error, "filtered out"},
+         true <- Helpers.in_namespace?(hash_value, exp.namespace) || {:error, "not in namespace"},
+         true <- eval_rule_condition(context.attributes, exp.condition) || {:error, "condition is false"} do
 
-  # 2. When the context is disabled
-  def run(%Context{enabled?: false} = context, %Experiment{} = experiment) do
-    Logger.debug("Experiment is disabled")
-    get_experiment_result(context, experiment)
+      bucket_ranges = exp.ranges || Helpers.get_bucket_ranges(variations_count, exp.coverage || 1.0, exp.weights || [])
+      hash = Hash.hash(exp.seed || exp.key, hash_value, exp.hash_version || 1)
+      variation_id = Helpers.choose_variation(hash, bucket_ranges)
+
+      cond do
+        variation_id < 0 ->
+          Logger.debug("Experiment #{exp.key} skipped: no assigned variation")
+          get_experiment_result(context, exp, feature_id)
+
+        not is_nil(exp.force) ->
+          Logger.debug("Experiment #{exp.key} forced: #{exp.force}")
+          get_experiment_result(context, exp, feature_id, exp.force)
+
+        context.qa_mode? ->
+          Logger.debug("Experiment #{exp.key} skipped: QA mode enabled")
+          get_experiment_result(context, exp, feature_id)
+
+        true ->
+          get_experiment_result(context, exp, feature_id, variation_id, true, hash)
+      end
+    else
+      {:error, error} ->
+        Logger.debug("Experiment #{exp.key} skipped: #{error}")
+        get_experiment_result(context, exp)
+    end
   end
 
-  # 1. If experiment has less than 2 variations
-  def run(%Context{} = context, %Experiment{variations: variations} = experiment)
-      when length(variations) < 2 do
-    Logger.debug("Experiment is invalid: has less than 2 variations")
-    get_experiment_result(context, experiment)
+  defp check_query_string_override(%Context{url: nil}, %Experiment{}), do: :ok
+  defp check_query_string_override(%Context{url: url} = context, %Experiment{} = exp) do
+    qs_override = Helpers.get_query_string_override(exp.key, url, length(exp.variations))
+    if not is_nil(qs_override) do
+      get_experiment_result(context, exp, qs_override)
+    else
+      :ok
+    end
   end
 
-  def run(%Context{} = context, %Experiment{key: key, variations: variations} = experiment) do
-    variations_count = length(variations)
+  defp check_forced_variation(%Context{} = context, %Experiment{} = exp) do
+    case Map.get(context.forced_variations, exp.key) do
+      nil -> :ok
+      var -> get_experiment_result(context, exp, var)
+    end
+  end
 
-    query_string_override =
-      not is_nil(context.url) &&
-        Helpers.get_query_string_override(key, context.url, variations_count)
+  defp get_experiment_hash_value(%Context{} = context, %Experiment{} = exp) do
+    hash_attribute = exp.hash_attribute || "id"
+    hash_value = context.attributes[hash_attribute] || ""
+    case hash_value do
+      "" -> get_experiment_fallback_value(context, exp)
+      _ -> {:ok, hash_attribute, hash_value}
+    end
+  end
 
-    hash_value = Map.get(context.attributes, experiment.hash_attribute || "id")
-
-    # 9. Get bucket ranges and choose variation
-    bucket_ranges =
-      Helpers.get_bucket_ranges(variations_count, experiment.coverage || 1.0, experiment.weights)
-
-    hash = if hash_value, do: Hash.hash(experiment.seed || key, hash_value, experiment.hash_version)
-    assigned_variation = Helpers.choose_variation(hash, bucket_ranges)
-
-    cond do
-      # 3. If a variation is forced from a query string, return forced variation
-      query_string_override ->
-        Logger.debug("#{key}: Forced variation from query string: #{query_string_override}")
-        get_experiment_result(context, experiment, query_string_override)
-
-      # 4. If a variation is forced in the context, return forced variation
-      is_map_key(context.forced_variations, key) ->
-        Logger.debug("#{key}: Forced variation from context: #{context.forced_variations[key]}")
-        get_experiment_result(context, experiment, context.forced_variations[key])
-
-      # 5. Exclude if experiment is inactive or in draft
-      experiment.active? == false or experiment.status == "draft" ->
-        Logger.debug("#{key}: Experiment is inactive (or in draft)")
-        get_experiment_result(context, experiment)
-
-      # 6. Skip if hash value is empty
-      hash_value in [nil, ""] ->
-        Logger.debug("#{key}: Skipping experiment because hash value is empty")
-        get_experiment_result(context, experiment)
-
-      # 7. Exclude if user not in experiment's namespace
-      experiment.namespace && not Helpers.in_namespace?(hash_value, experiment.namespace) ->
-        Logger.debug("#{key}: Skipping experiment because user is not in namespace")
-        get_experiment_result(context, experiment)
-
-      # 8. Exclude if condition is set and it doesn't evaluate to true
-      experiment.condition &&
-          not Condition.eval_condition(context.attributes, experiment.condition) ->
-        Logger.debug("#{key}: Skipping experiment because condition evaluated to false")
-        get_experiment_result(context, experiment)
-
-      # NOTE: Legacy URL and Group targetting is omitted in favor of conditions
-
-      # 10. Exclude if not in experiment
-      assigned_variation < 0 ->
-        Logger.debug("#{key}: Skipping experiment because user is not assigned to variation")
-        get_experiment_result(context, experiment)
-
-      # 11. If experiment has forced variation
-      experiment.force ->
-        Logger.debug("#{key}: Forced variation from experiment: #{experiment.force}")
-        get_experiment_result(context, experiment, experiment.force)
-
-      # 12. Exclude if in QA mode
-      context.qa_mode? ->
-        Logger.debug("#{key}: Skipping experiment because QA mode is enabled")
-        get_experiment_result(context, experiment)
-
-      # 12.5. Exclude if experiment is stopped
-      experiment.status == "stopped" ->
-        get_experiment_result(context, experiment)
-
-      # 13. Experiment is active
-      true ->
-        Logger.debug("#{key}: Experiment is active")
-        get_experiment_result(context, experiment, assigned_variation, true)
+  defp get_experiment_fallback_value(%Context{} = context, %Experiment{} = exp) do
+    case {exp.fallback_attribute, context.attributes[exp.fallback_attribute]} do
+      {nil, _} -> {:error, "empty fallback attribute"}
+      {_, nil} -> {:error, "empty fallback attribute value"}
+      {attr, val} -> {:ok, attr, val}
     end
   end
 end

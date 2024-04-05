@@ -55,7 +55,10 @@ defmodule GrowthBook.Config do
     Enum.map(feature_rules, fn feature_rule ->
       namespace = feature_rule |> Map.get("namespace") |> namespace_from_config()
       meta = Map.get(feature_rule, "meta", []) |> Enum.map(&VariationMeta.from_json/1)
-      ranges = Map.get(feature_rule, "ranges", []) |> Enum.map(&BucketRange.from_json/1)
+      ranges = case Map.get(feature_rule, "ranges") do
+                 nil -> nil
+                 ranges -> Enum.map(ranges, &BucketRange.from_json/1)
+               end
       parent_conditions = Map.get(feature_rule, "parentConditions", []) |> Enum.map(&ParentCondition.from_json/1)
       filters = Map.get(feature_rule, "filters", []) |> Enum.map(&Filter.from_json/1)
 

@@ -10,26 +10,26 @@ defmodule GrowthBook.VariationMeta do
 
   - **`key`** (`String.t()`) - A unique key for this variation (optional)
   - **`name`** (`String.t()`) - A human-readable name for this variation (optional)
-  - **`passthrough`** (`boolean()`) - Used to implement holdout groups (optional)
+  - **`passthrough?`** (`boolean()`) - Used to implement holdout groups (optional)
   """
 
   @type t() :: %__MODULE__{
     key: String.t() | nil,
     name: String.t() | nil,
-    passthrough: boolean()
+    passthrough?: boolean()
   }
 
   defstruct [
     :key,
     :name,
-    passthrough: false
+    passthrough?: false
   ]
 
   def from_json(map) when is_map(map) do
     %__MODULE__{
       key: map["key"],
       name: map["name"],
-      passthrough: map["passthrough"] || false
+      passthrough?: map["passthrough"] || false
     }
   end
 end

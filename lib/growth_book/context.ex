@@ -2,7 +2,7 @@ defmodule GrowthBook.Context do
   @moduledoc """
   Stores feature and experiment context.
 
-  Holds the state of features, experiment overrides, attributes and other "global" state. The
+  Holds the state of features, attributes and other "global" state. The
   context works similar to `%Plug.Conn{}`, as it is created for each request and passed along
   when working with features and experiments.
   """
@@ -25,11 +25,11 @@ defmodule GrowthBook.Context do
     forced variations are used.
   """
   @type t() :: %__MODULE__{
+          enabled?: boolean(),
           attributes: attributes(),
+          url: String.t() | nil,
           features: features(),
           forced_variations: forced_variations(),
-          url: String.t() | nil,
-          enabled?: boolean(),
           qa_mode?: boolean()
         }
 

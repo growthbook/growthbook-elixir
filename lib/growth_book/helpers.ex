@@ -13,7 +13,8 @@ defmodule GrowthBook.Helpers do
   @doc """
   This checks if a userId is within an experiment namespace or not.
   """
-  @spec in_namespace?(String.t(), GrowthBook.namespace()) :: boolean()
+  @spec in_namespace?(String.t(), GrowthBook.namespace() | nil) :: boolean()
+  def in_namespace?(_, nil) do true end
   def in_namespace?(user_id, {namespace, min, max}) do
     hash = Hash.hash("__#{namespace}", user_id, 1)
     hash >= min and hash < max
