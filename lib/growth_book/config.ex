@@ -95,6 +95,12 @@ defmodule GrowthBook.Config do
   @spec experiment_from_config(json_map()) :: Experiment.t()
   def experiment_from_config(experiment_config) do
     namespace = experiment_config |> Map.get("namespace") |> namespace_from_config()
+    meta = Map.get(experiment_config, "meta", []) |> Enum.map(&VariationMeta.from_json/1)
+    ranges = case Map.get(experiment_config, "ranges") do
+               nil -> nil
+               ranges -> Enum.map(ranges, &BucketRange.from_json/1)
+             end
+    filters = Map.get(experiment_config, "filters", []) |> Enum.map(&Filter.from_json/1)
 
     %Experiment{
       key: Map.get(experiment_config, "key"),
@@ -105,7 +111,10 @@ defmodule GrowthBook.Config do
       coverage: experiment_config |> Map.get("coverage") |> ensure_float(),
       hash_attribute: Map.get(experiment_config, "hashAttribute"),
       force: Map.get(experiment_config, "force"),
-      weights: Map.get(experiment_config, "weights")
+      weights: Map.get(experiment_config, "weights"),
+      ranges: ranges,
+      meta: meta,
+      filters: filters
     }
   end
 

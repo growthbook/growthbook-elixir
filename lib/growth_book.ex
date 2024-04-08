@@ -214,6 +214,7 @@ defmodule GrowthBook do
     end
   end
 
+  defp filtered_out?(_context, nil), do: false
   defp filtered_out?(context, filters) when is_list(filters) do
     Enum.any?(filters, &filtered_out?(context, &1))
   end
@@ -234,7 +235,7 @@ defmodule GrowthBook do
   This function takes a context and an experiment, and returns an `GrowthBook.ExperimentResult` struct.
   """
   @spec run(Context.t(), Experiment.t(), String.t() | nil) :: ExperimentResult.t()
-  def run(%Context{} = context, %Experiment{} = exp, feature_id) do
+  def run(%Context{} = context, %Experiment{} = exp, feature_id \\ nil) do
     with variations_count <- length(exp.variations),
          true <- variations_count >=2 || {:error, "has less than 2 variations"},
          true <- context.enabled? || {:error, "disabled"},
@@ -243,7 +244,7 @@ defmodule GrowthBook do
          true <- exp.active? || {:error, "is not active"},
          {:ok, _hash_attribute, hash_value} <- get_experiment_hash_value(context, exp),
          true <- not filtered_out?(context, exp.filters) || {:error, "filtered out"},
-         true <- Helpers.in_namespace?(hash_value, exp.namespace) || {:error, "not in namespace"},
+         true <- (exp.filters || []) != [] || Helpers.in_namespace?(hash_value, exp.namespace) || {:error, "not in namespace"},
          true <- eval_rule_condition(context.attributes, exp.condition) || {:error, "condition is false"} do
 
       bucket_ranges = exp.ranges || Helpers.get_bucket_ranges(variations_count, exp.coverage || 1.0, exp.weights || [])
