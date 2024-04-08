@@ -9,7 +9,8 @@ defmodule GrowthBook.ConformanceTest do
   describe "GrowthBook.Hash.hash/1" do
     @describetag :hash
 
-    for [seed, value, version, expected] <- cases["hash"] do
+    for test_case <- cases["hash"] do
+      [seed, value, version, expected] = test_case
       test "hash v#{inspect(version)} with seed #{inspect(seed)}  and value #{inspect(value)} returns #{inspect(expected)}" do
         seed = unquote(seed)
         value = unquote(value)
@@ -23,7 +24,8 @@ defmodule GrowthBook.ConformanceTest do
   describe "GrowthBook.Helpers.get_bucket_ranges/3" do
     @describetag :get_bucket_range
 
-    for [desc, input, expected] <- cases["getBucketRange"] do
+    for test_case <- cases["getBucketRange"] do
+      [desc, input, expected] = test_case
       test desc do
         [count, coverage, weights] = unquote(input)
 
@@ -36,7 +38,8 @@ defmodule GrowthBook.ConformanceTest do
   describe "GrowthBook.Helpers.choose_variation/2" do
     @describetag :choose_variation
 
-    for [desc, hash, bucket_ranges, expected] <- cases["chooseVariation"] do
+    for test_case <- cases["chooseVariation"] do
+      [desc, hash, bucket_ranges, expected] = test_case
       test desc do
         hash = unquote(hash)
         bucket_ranges = unquote(bucket_ranges)
@@ -50,7 +53,8 @@ defmodule GrowthBook.ConformanceTest do
   describe "GrowthBook.Helpers.get_query_string_override/3" do
     @describetag :get_query_string_override
 
-    for [desc, experiment_id, url, count, expected] <- cases["getQueryStringOverride"] do
+    for test_case <- cases["getQueryStringOverride"] do
+      [desc, experiment_id, url, count, expected] = test_case
       test desc do
         experiment_id = unquote(experiment_id)
         url = unquote(url)
@@ -65,7 +69,8 @@ defmodule GrowthBook.ConformanceTest do
   describe "GrowthBook.Helpers.in_namespace?/2" do
     @describetag :in_namespace
 
-    for [desc, user_id, namespace, expected] <- cases["inNamespace"] do
+    for test_case <- cases["inNamespace"] do
+      [desc, user_id, namespace, expected] = test_case
       test desc do
         user_id = unquote(user_id)
         namespace = GrowthBook.Config.namespace_from_config(unquote(namespace))
@@ -78,7 +83,8 @@ defmodule GrowthBook.ConformanceTest do
   describe "GrowthBook.Helpers.get_equal_weights/1" do
     @describetag :get_equal_weights
 
-    for [count, expected] <- cases["getEqualWeights"] do
+    for test_case <- cases["getEqualWeights"] do
+      [count, expected] = test_case
       test "equal weights for #{count}" do
         count = unquote(count)
 
@@ -90,8 +96,8 @@ defmodule GrowthBook.ConformanceTest do
   describe "GrowthBook.Condition.eval_condition/2" do
     @describetag :eval_condition
 
-    for {[desc, condition, attributes, expected], index} <-
-          Enum.with_index(cases["evalCondition"]) do
+    for {test_case, index} <- Enum.with_index(cases["evalCondition"]) do
+      [desc, condition, attributes, expected] = test_case
       test "##{index}: #{desc}" do
         condition = unquote(Macro.escape(condition))
         attributes = unquote(Macro.escape(attributes))
@@ -103,13 +109,13 @@ defmodule GrowthBook.ConformanceTest do
         end)
       end
     end
-  end
+    end
 
   describe "GrowthBook.feature/2" do
     @describetag :feature
 
-    for {[desc, context_config, feature_key, expected], index} <-
-          Enum.with_index(cases["feature"]) do
+    for {test_case, index} <- Enum.with_index(cases["feature"]) do
+      [desc, context_config, feature_key, expected] = test_case
       test "##{index}: #{desc}" do
         context_config = unquote(Macro.escape(context_config))
         expected_config = unquote(Macro.escape(expected))
@@ -151,14 +157,19 @@ defmodule GrowthBook.ConformanceTest do
   end
 
   describe "GrowthBook.run/2" do
-    for {[desc, context_config, experiment_config, value, in_experiment?], index} <-
-          Enum.with_index(cases["run"]) do
+    @describetag :run
+
+    for {test_case, index} <- Enum.with_index(cases["run"]) do
+      [desc| _] = test_case
       @tag index: to_string(index)
       test "##{index}: #{desc}" do
-        context_config = unquote(Macro.escape(context_config))
-        experiment_config = unquote(Macro.escape(experiment_config))
-        value = unquote(Macro.escape(value))
-        in_experiment? = unquote(Macro.escape(in_experiment?))
+        [_desc,
+         context_config,
+         experiment_config,
+         value,
+         in_experiment?,
+         hash_used?
+        ] = unquote(Macro.escape(test_case))
 
         context = %GrowthBook.Context{
           url: Map.get(context_config, "url"),
@@ -176,6 +187,7 @@ defmodule GrowthBook.ConformanceTest do
 
           assert value == actual.value
           assert in_experiment? == actual.in_experiment?
+          assert hash_used? == actual.hash_used?
         end)
       end
     end
