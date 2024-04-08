@@ -132,7 +132,8 @@ defmodule GrowthBook.ConformanceTest do
 
         context = %GrowthBook.Context{
           features: GrowthBook.Config.features_from_config(context_config),
-          attributes: Map.get(context_config, "attributes") || %{}
+          attributes: Map.get(context_config, "attributes") || %{},
+          forced_variations: Map.get(context_config, "forcedVariations") || %{}
         }
 
         capture_log(fn ->

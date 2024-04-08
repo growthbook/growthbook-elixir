@@ -238,8 +238,8 @@ defmodule GrowthBook do
     with variations_count <- length(exp.variations),
          true <- variations_count >=2 || {:error, "has less than 2 variations"},
          true <- context.enabled? || {:error, "disabled"},
-         :ok <- check_query_string_override(context, exp),
-         :ok <- check_forced_variation(context, exp),
+         :ok <- check_query_string_override(context, exp, feature_id),
+         :ok <- check_forced_variation(context, exp, feature_id),
          true <- exp.active? || {:error, "is not active"},
          {:ok, _hash_attribute, hash_value} <- get_experiment_hash_value(context, exp),
          true <- not filtered_out?(context, exp.filters) || {:error, "filtered out"},
@@ -270,23 +270,25 @@ defmodule GrowthBook do
       {:error, error} ->
         Logger.debug("Experiment #{exp.key} skipped: #{error}")
         get_experiment_result(context, exp)
+      %ExperimentResult{} = result ->
+        result
     end
   end
 
-  defp check_query_string_override(%Context{url: nil}, %Experiment{}), do: :ok
-  defp check_query_string_override(%Context{url: url} = context, %Experiment{} = exp) do
+  defp check_query_string_override(%Context{url: nil}, %Experiment{}, _), do: :ok
+  defp check_query_string_override(%Context{url: url} = context, %Experiment{} = exp, feature_id) do
     qs_override = Helpers.get_query_string_override(exp.key, url, length(exp.variations))
     if not is_nil(qs_override) do
-      get_experiment_result(context, exp, qs_override)
+      get_experiment_result(context, exp, feature_id, qs_override)
     else
       :ok
     end
   end
 
-  defp check_forced_variation(%Context{} = context, %Experiment{} = exp) do
+  defp check_forced_variation(%Context{} = context, %Experiment{} = exp, feature_id) do
     case Map.get(context.forced_variations, exp.key) do
       nil -> :ok
-      var -> get_experiment_result(context, exp, var)
+      var -> get_experiment_result(context, exp, feature_id, var)
     end
   end
 
