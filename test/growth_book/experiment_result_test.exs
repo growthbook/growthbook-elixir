@@ -14,7 +14,9 @@ defmodule GrowthBook.ExperimentResultTest do
                variation_id: nil,
                in_experiment?: nil,
                hash_attribute: nil,
-               hash_value: nil
+               hash_value: nil,
+               key: nil,
+               passthrough?: nil
              )
     end
   end

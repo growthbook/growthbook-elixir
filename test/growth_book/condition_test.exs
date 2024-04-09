@@ -35,11 +35,7 @@ defmodule GrowthBook.ConditionTest do
 
   describe "Condition.eval_condition/2" do
     test "skips non-operator values" do
-      refute Condition.eval_condition(%{}, %{"$elemMatch" => nil})
-    end
-
-    test "handles numeric type-conversion like JS" do
-      refute Condition.eval_condition(%{}, %{"$elemMatch" => nil})
+      refute Condition.eval_condition(%{}, %{"id" => %{"$elemMatch" => nil}})
     end
 
     test "numeric type conversion on eval_condition_value" do
