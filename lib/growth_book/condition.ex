@@ -166,8 +166,23 @@ defmodule GrowthBook.Condition do
     end
   end
 
-  defp eval_operator_condition(op, left, _)
-    when op in ["$lt", "$lte", "$gt", "$gte"] and left == :undefined, do: true
+  defp eval_operator_condition(operator, left, right)
+       when is_number(right) and is_binary(left) and operator in @type_coercion_operators do
+    case Float.parse(left) do
+      {left, _rest} -> eval_operator_condition(operator, left, right)
+      _unparseable -> false
+    end
+  end
+
+  defp eval_operator_condition(operator, left, right)
+    when is_number(right) and left in [nil, :undefined] and operator in @type_coercion_operators do
+    eval_operator_condition(operator, 0, right)
+  end
+
+  defp eval_operator_condition(operator, left, right)
+    when is_number(left) and right in [nil, :undefined] and operator in @type_coercion_operators do
+    eval_operator_condition(operator, left, 0)
+  end
 
   defp eval_operator_condition("$lt", left, right), do: left < right
   defp eval_operator_condition("$lte", left, right), do: left <= right
