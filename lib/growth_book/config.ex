@@ -13,7 +13,8 @@ defmodule GrowthBook.Config do
     Experiment,
     VariationMeta,
     BucketRange,
-    Filter
+    Filter,
+    ParentCondition
   }
 
   @typedoc """
@@ -101,6 +102,7 @@ defmodule GrowthBook.Config do
                ranges -> Enum.map(ranges, &BucketRange.from_json/1)
              end
     filters = Map.get(experiment_config, "filters", []) |> Enum.map(&Filter.from_json/1)
+    parent_conditions = Map.get(experiment_config, "parentConditions", []) |> Enum.map(&ParentCondition.from_json/1)
 
     %Experiment{
       key: Map.get(experiment_config, "key"),
@@ -114,7 +116,8 @@ defmodule GrowthBook.Config do
       weights: Map.get(experiment_config, "weights"),
       ranges: ranges,
       meta: meta,
-      filters: filters
+      filters: filters,
+      parent_conditions: parent_conditions
     }
   end
 

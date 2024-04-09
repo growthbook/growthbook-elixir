@@ -10,6 +10,7 @@ defmodule GrowthBook.Experiment do
     VariationMeta,
     BucketRange,
     Condition,
+    ParentCondition,
     Experiment
   }
 
@@ -39,6 +40,7 @@ defmodule GrowthBook.Experiment do
     (Note: sticky bucketing is only available if a StickyBucketingService is provided in the Context)
   - **`bucket_version`** (`integer()`) - An sticky bucket version number that can be used to force a re-bucketing of users (default to 0)
   - **`min_bucket_version`** (`integer()`) - Any users with a sticky bucket version less than this will be excluded from the experiment
+  - **`parent_conditions`** (list of t:ParentCondition.t()`) - Optional parent conditions
   """
   @type t() :: %__MODULE__{
     key: String.t(),
@@ -60,7 +62,8 @@ defmodule GrowthBook.Experiment do
     phase: String.t() | nil,
     disable_sticky_bucketing: boolean() | nil,
     bucket_version: integer() | nil,
-    min_bucket_version: integer() | nil
+    min_bucket_version: integer() | nil,
+    parent_conditions: [ParentCondtion.t()] | nil
   }
 
   @typedoc """
@@ -91,7 +94,8 @@ defmodule GrowthBook.Experiment do
     :phase,
     :disable_sticky_bucketing,
     :bucket_version,
-    :min_bucket_version
+    :min_bucket_version,
+    :parent_conditions
   ]
 
   @doc """

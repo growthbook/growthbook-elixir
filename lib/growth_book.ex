@@ -15,7 +15,8 @@ defmodule GrowthBook do
     FeatureRule,
     Helpers,
     Hash,
-    Filter
+    Filter,
+    ParentCondition
   }
 
   require Logger
@@ -150,7 +151,7 @@ defmodule GrowthBook do
   end
 
   defp eval_rules(%Context{} = context, feature_id, %Feature{} = feature, [%FeatureRule{} = rule | rest], path) do
-    with true <- eval_parent_conditions(context, rule.parent_conditions, [feature_id | path]),
+    with true <- ParentCondition.eval(context, rule.parent_conditions, [feature_id | path]) || :skip,
          true <- not filtered_out?(context, rule.filters) || :skip,
          true <- eval_rule_condition(context.attributes, rule.condition) || :skip,
          true <- eval_forced_rule(context.attributes, feature_id, rule),
@@ -161,6 +162,10 @@ defmodule GrowthBook do
     else
       :skip -> eval_rules(context, feature_id, feature, rest, path)
       %FeatureResult{} = result -> result
+      {:error, %ParentCondition.CyclingError{}} ->
+        get_feature_result(nil, :cyclic_prerequisite)
+      {:error, %ParentCondition.PrerequisiteError{}} ->
+        get_feature_result(nil, :prerequisite)
     end
   end
 
@@ -186,34 +191,6 @@ defmodule GrowthBook do
   defp eval_rule_condition(attributes, condition),
     do: Condition.eval_condition(attributes, condition)
 
-  defp eval_parent_conditions(_, [], _), do: true
-
-  defp eval_parent_conditions(%Context{} = context, [parent_condition | rest], path) do
-    %ParentCondition{
-      id: parent_feature_id,
-      gate:  gate,
-      condition: condition
-    } = parent_condition
-
-    if parent_feature_id in path do
-      Logger.debug(
-        "Cycling feature prerequisite: #{parent_feature_id}, path: #{inspect(path)}"
-      )
-      get_feature_result(nil, :cyclic_prerequisite)
-    else
-      case feature(context, parent_feature_id, path) do
-        %FeatureResult{source: :cyclic_prerequisite} = cyclic_error ->
-          cyclic_error
-        %FeatureResult{value: value} ->
-          case Condition.eval_condition(%{"value" => value}, condition) do
-            true -> eval_parent_conditions(context, rest, path)
-            false when gate == true -> get_feature_result(nil, :prerequisite)
-            false -> :skip
-          end
-      end
-    end
-  end
-
   defp filtered_out?(_context, nil), do: false
   defp filtered_out?(context, filters) when is_list(filters) do
     Enum.any?(filters, &filtered_out?(context, &1))
@@ -235,7 +212,7 @@ defmodule GrowthBook do
   This function takes a context and an experiment, and returns an `GrowthBook.ExperimentResult` struct.
   """
   @spec run(Context.t(), Experiment.t(), String.t() | nil) :: ExperimentResult.t()
-  def run(%Context{} = context, %Experiment{} = exp, feature_id \\ nil) do
+  def run(%Context{} = context, %Experiment{} = exp, feature_id \\ nil, path \\ []) do
     with variations_count <- length(exp.variations),
          true <- variations_count >=2 || {:error, "has less than 2 variations"},
          true <- context.enabled? || {:error, "disabled"},
@@ -245,7 +222,8 @@ defmodule GrowthBook do
          {:ok, _hash_attribute, hash_value} <- get_experiment_hash_value(context, exp),
          true <- not filtered_out?(context, exp.filters) || {:error, "filtered out"},
          true <- (exp.filters || []) != [] || Helpers.in_namespace?(hash_value, exp.namespace) || {:error, "not in namespace"},
-         true <- eval_rule_condition(context.attributes, exp.condition) || {:error, "condition is false"} do
+         true <- eval_rule_condition(context.attributes, exp.condition) || {:error, "condition is false"},
+         true <- ParentCondition.eval(context, exp.parent_conditions, path) || {:error, "parent conditions are false"} do
 
       bucket_ranges = exp.ranges || Helpers.get_bucket_ranges(variations_count, exp.coverage || 1.0, exp.weights || [])
       hash = Hash.hash(exp.seed || exp.key, hash_value, exp.hash_version || 1)
@@ -268,6 +246,12 @@ defmodule GrowthBook do
           get_experiment_result(context, exp, feature_id, variation_id, true, hash)
       end
     else
+      {:error, %ParentCondition.CyclingError{message: message}} ->
+        Logger.debug("Experiment #{exp.key} skipped: #{message}")
+        get_experiment_result(context, exp)
+      {:error, %ParentCondition.PrerequisiteError{message: message}} ->
+        Logger.debug("Experiment #{exp.key} skipped: #{message}")
+        get_experiment_result(context, exp)
       {:error, error} ->
         Logger.debug("Experiment #{exp.key} skipped: #{error}")
         get_experiment_result(context, exp)
