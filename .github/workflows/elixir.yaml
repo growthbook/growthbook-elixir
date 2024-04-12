@@ -77,10 +77,10 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - otp: '23.0'
-            elixir: '1.13.2'
           - otp: '24.0'
-            elixir: '1.13.2'
+            elixir: '1.15.7'
+          - otp: '25.0'
+            elixir: '1.15.7'
 
     steps:
       - uses: actions/checkout@v2
