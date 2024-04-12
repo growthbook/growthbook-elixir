@@ -56,16 +56,23 @@ defmodule GrowthBook.Config do
     Enum.map(feature_rules, fn feature_rule ->
       namespace = feature_rule |> Map.get("namespace") |> namespace_from_config()
       meta = Map.get(feature_rule, "meta", []) |> Enum.map(&VariationMeta.from_json/1)
-      ranges = case Map.get(feature_rule, "ranges") do
-                 nil -> nil
-                 ranges -> Enum.map(ranges, &BucketRange.from_json/1)
-               end
-      parent_conditions = Map.get(feature_rule, "parentConditions", []) |> Enum.map(&ParentCondition.from_json/1)
+
+      ranges =
+        case Map.get(feature_rule, "ranges") do
+          nil -> nil
+          ranges -> Enum.map(ranges, &BucketRange.from_json/1)
+        end
+
+      parent_conditions =
+        Map.get(feature_rule, "parentConditions", []) |> Enum.map(&ParentCondition.from_json/1)
+
       filters = Map.get(feature_rule, "filters", []) |> Enum.map(&Filter.from_json/1)
-      range = case Map.get(feature_rule, "range") do
-                nil -> nil
-                range -> BucketRange.from_json(range)
-              end
+
+      range =
+        case Map.get(feature_rule, "range") do
+          nil -> nil
+          range -> BucketRange.from_json(range)
+        end
 
       %FeatureRule{
         condition: Map.get(feature_rule, "condition"),
@@ -101,12 +108,17 @@ defmodule GrowthBook.Config do
   def experiment_from_config(experiment_config) do
     namespace = experiment_config |> Map.get("namespace") |> namespace_from_config()
     meta = Map.get(experiment_config, "meta", []) |> Enum.map(&VariationMeta.from_json/1)
-    ranges = case Map.get(experiment_config, "ranges") do
-               nil -> nil
-               ranges -> Enum.map(ranges, &BucketRange.from_json/1)
-             end
+
+    ranges =
+      case Map.get(experiment_config, "ranges") do
+        nil -> nil
+        ranges -> Enum.map(ranges, &BucketRange.from_json/1)
+      end
+
     filters = Map.get(experiment_config, "filters", []) |> Enum.map(&Filter.from_json/1)
-    parent_conditions = Map.get(experiment_config, "parentConditions", []) |> Enum.map(&ParentCondition.from_json/1)
+
+    parent_conditions =
+      Map.get(experiment_config, "parentConditions", []) |> Enum.map(&ParentCondition.from_json/1)
 
     %Experiment{
       key: Map.get(experiment_config, "key"),

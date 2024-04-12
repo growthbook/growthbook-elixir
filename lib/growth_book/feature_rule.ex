@@ -49,28 +49,28 @@ defmodule GrowthBook.FeatureRule do
   - **`min_bucket_version`** (`t:integer/0`) - Any users with a sticky bucket version less than this will be excluded from the experiment
   """
   @type t() :: %__MODULE__{
-    condition: Condition.t() | nil,
-    parent_conditions: [ParentCondition.t()] | nil,
-    coverage: float() | nil,
-    force: term() | nil,
-    variations: [term()] | nil,
-    key: String.t() | nil,
-    weights: [float()] | nil,
-    namespace: GrowthBook.namespace() | nil,
-    hash_attribute: String.t() | nil,
-    fallback_attribute: String.t() | nil,
-    hash_version: integer() | nil,
-    range: BucketRange.t() | nil,
-    ranges: [BucketRange.t()] | nil,
-    meta: [VariationMeta.t()] | nil,
-    filters: [Filter.t()] | nil,
-    seed: String.t() | nil,
-    name: String.t() | nil,
-    phase: String.t() | nil,
-    disable_sticky_bucketing: boolean() | nil,
-    bucket_version: integer() | nil,
-    min_bucket_version: integer() | nil
-  }
+          condition: Condition.t() | nil,
+          parent_conditions: [ParentCondition.t()] | nil,
+          coverage: float() | nil,
+          force: term() | nil,
+          variations: [term()] | nil,
+          key: String.t() | nil,
+          weights: [float()] | nil,
+          namespace: GrowthBook.namespace() | nil,
+          hash_attribute: String.t() | nil,
+          fallback_attribute: String.t() | nil,
+          hash_version: integer() | nil,
+          range: BucketRange.t() | nil,
+          ranges: [BucketRange.t()] | nil,
+          meta: [VariationMeta.t()] | nil,
+          filters: [Filter.t()] | nil,
+          seed: String.t() | nil,
+          name: String.t() | nil,
+          phase: String.t() | nil,
+          disable_sticky_bucketing: boolean() | nil,
+          bucket_version: integer() | nil,
+          min_bucket_version: integer() | nil
+        }
 
   defstruct [
     :condition,

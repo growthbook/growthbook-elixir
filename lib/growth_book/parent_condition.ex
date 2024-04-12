@@ -51,10 +51,10 @@ defmodule GrowthBook.ParentCondition do
   - **`gate`** (`t:boolean/0`) -  If gate is true, then this is a blocking feature-level prerequisite; otherwise it applies to the current rule only.
   """
   @type t() :: %__MODULE__{
-     id: String.t(),
-     condition: Condition.t(),
-     gate: boolean()
-  }
+          id: String.t(),
+          condition: Condition.t(),
+          gate: boolean()
+        }
 
   @type error() :: CyclingError.t() | PrerequisiteError.t()
 
@@ -73,13 +73,15 @@ defmodule GrowthBook.ParentCondition do
     }
   end
 
-  @spec eval( Context.t(), [ParentCondition.t()] | nil, [String.t()]) :: true | false | {:error, ParentCondition.error()}
+  @spec eval(Context.t(), [ParentCondition.t()] | nil, [String.t()]) ::
+          true | false | {:error, ParentCondition.error()}
   def eval(_, [], _), do: true
   def eval(_, nil, _), do: true
+
   def eval(%Context{} = context, [parent_condition | rest], path) do
     %ParentCondition{
       id: parent_feature_id,
-      gate:  gate,
+      gate: gate,
       condition: condition
     } = parent_condition
 
@@ -92,14 +94,17 @@ defmodule GrowthBook.ParentCondition do
         %FeatureResult{source: :cyclic_prerequisite} ->
           error = "Cycling feature prerequisite: #{parent_feature_id}, path: #{inspect(path)}"
           {:error, %CyclingError{message: error}}
+
         %FeatureResult{value: value} ->
           case Condition.eval_condition(%{"value" => value}, condition) do
             true ->
               eval(context, rest, path)
+
             false when gate == true ->
               error = "Feature prerequisite missing: #{parent_feature_id}, path: #{inspect(path)}"
               Logger.debug(error)
               {:error, %PrerequisiteError{message: error}}
+
             false ->
               false
           end

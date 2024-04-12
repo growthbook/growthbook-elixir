@@ -43,28 +43,28 @@ defmodule GrowthBook.Experiment do
   - **`parent_conditions`** (list of `t:GrowthBook.ParentCondition.t/0`) - Optional parent conditions
   """
   @type t() :: %__MODULE__{
-    key: String.t(),
-    variations: [variation()],
-    weights: [float()],
-    active?: boolean() | nil,
-    coverage: float() | nil,
-    ranges: [BucketRange.t()],
-    condition: Condition.t() | nil,
-    namespace: GrowthBook.namespace() | nil,
-    force:  integer() | nil,
-    hash_attribute: String.t() | nil,
-    fallback_attribute: String.t() | nil,
-    hash_version:  integer() | nil,
-    meta: [VariationMeta.t()],
-    filters: [Filter.t()] | nil,
-    seed: String.t() | nil,
-    name: String.t() | nil,
-    phase: String.t() | nil,
-    disable_sticky_bucketing: boolean() | nil,
-    bucket_version: integer() | nil,
-    min_bucket_version: integer() | nil,
-    parent_conditions: [ParentCondition.t()] | nil
-  }
+          key: String.t(),
+          variations: [variation()],
+          weights: [float()],
+          active?: boolean() | nil,
+          coverage: float() | nil,
+          ranges: [BucketRange.t()],
+          condition: Condition.t() | nil,
+          namespace: GrowthBook.namespace() | nil,
+          force: integer() | nil,
+          hash_attribute: String.t() | nil,
+          fallback_attribute: String.t() | nil,
+          hash_version: integer() | nil,
+          meta: [VariationMeta.t()],
+          filters: [Filter.t()] | nil,
+          seed: String.t() | nil,
+          name: String.t() | nil,
+          phase: String.t() | nil,
+          disable_sticky_bucketing: boolean() | nil,
+          bucket_version: integer() | nil,
+          min_bucket_version: integer() | nil,
+          parent_conditions: [ParentCondition.t()] | nil
+        }
 
   @typedoc """
   Variation
@@ -101,7 +101,7 @@ defmodule GrowthBook.Experiment do
   @doc """
   Creates new experiment struct from rule.
   """
-  @spec from_rule(String.t(), FeatureRule.t()) ::t()
+  @spec from_rule(String.t(), FeatureRule.t()) :: t()
   def from_rule(feature_id, %FeatureRule{} = rule) do
     %Experiment{
       variations: rule.variations || [],
@@ -125,5 +125,4 @@ defmodule GrowthBook.Experiment do
       active?: true
     }
   end
-
 end

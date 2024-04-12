@@ -1,9 +1,7 @@
 defmodule GrowthBook.Hash do
-
   @type value() :: String.t() | integer()
   @type seed() :: String.t() | integer()
   @type version() :: 1 | 2
-
 
   @doc """
   Hashes a string to a float between `0.0` and `1.0`, using the
@@ -14,6 +12,7 @@ defmodule GrowthBook.Hash do
   def hash(seed, value, version) do
     seed = to_string(seed)
     value = to_string(value)
+
     case version do
       1 -> hash_v1(seed, value)
       2 -> hash_v2(seed, value)
@@ -55,5 +54,4 @@ defmodule GrowthBook.Hash do
   end
 
   def fnv32a(<<>>, state), do: state
-
 end

@@ -127,7 +127,7 @@ defmodule GrowthBook.Condition do
   defp eval_condition_value(condition, value) when is_boolean(condition),
     do: Helpers.cast_boolish(value) == condition
 
-  defp eval_condition_value(nil, value), do: value in [:nil, :undefined]
+  defp eval_condition_value(nil, value), do: value in [nil, :undefined]
 
   defp eval_condition_value(condition, value) do
     if is_list(condition) or not operator_object?(condition) do
@@ -175,12 +175,14 @@ defmodule GrowthBook.Condition do
   end
 
   defp eval_operator_condition(operator, left, right)
-    when is_number(right) and left in [nil, :undefined] and operator in @type_coercion_operators do
+       when is_number(right) and left in [nil, :undefined] and
+              operator in @type_coercion_operators do
     eval_operator_condition(operator, 0, right)
   end
 
   defp eval_operator_condition(operator, left, right)
-    when is_number(left) and right in [nil, :undefined] and operator in @type_coercion_operators do
+       when is_number(left) and right in [nil, :undefined] and
+              operator in @type_coercion_operators do
     eval_operator_condition(operator, left, 0)
   end
 
@@ -189,16 +191,18 @@ defmodule GrowthBook.Condition do
   defp eval_operator_condition("$gt", left, right), do: left > right
   defp eval_operator_condition("$gte", left, right), do: left >= right
 
-  defp eval_operator_condition(op, left, right) when op in ["$veq", "$vne", "$vlt", "$vlte", "$vgt", "$vgte"] do
+  defp eval_operator_condition(op, left, right)
+       when op in ["$veq", "$vne", "$vlt", "$vlte", "$vgt", "$vgte"] do
     lversion = padded_version(left)
     rversion = padded_version(right)
+
     case op do
       "$veq" -> lversion == rversion
       "$vne" -> lversion != rversion
-      "$vlt" -> lversion <  rversion
-      "$vlte" -> lversion <=rversion
+      "$vlt" -> lversion < rversion
+      "$vlte" -> lversion <= rversion
       "$vgt" -> lversion > rversion
-      "$vgte" -> lversion >=rversion
+      "$vgte" -> lversion >= rversion
     end
   end
 
@@ -206,12 +210,17 @@ defmodule GrowthBook.Condition do
     do: if(right, do: left not in [nil, :undefined], else: left in [nil, :undefined])
 
   defp eval_operator_condition("$in", _, right) when not is_list(right), do: false
+
   defp eval_operator_condition("$in", left, right) when is_list(left) do
     Enum.any?(left, &(&1 in right))
   end
+
   defp eval_operator_condition("$in", left, right), do: left in right
   defp eval_operator_condition("$nin", _, right) when not is_list(right), do: false
-  defp eval_operator_condition("$nin", left, right), do: not eval_operator_condition("$in", left, right)
+
+  defp eval_operator_condition("$nin", left, right),
+    do: not eval_operator_condition("$in", left, right)
+
   defp eval_operator_condition("$not", left, right), do: not eval_condition_value(right, left)
 
   defp eval_operator_condition("$size", left, right) when is_list(left),
@@ -321,15 +330,17 @@ defmodule GrowthBook.Condition do
   @doc false
   @spec padded_version(String.t()) :: [String.t()]
   def padded_version("v" <> s), do: padded_version(s)
+
   def padded_version(s) when is_binary(s) do
-    parts = String.split(s, "+")
-    |> hd()
-    |> String.split([".", "-"])
-    |> Enum.map(fn s ->
-      if Regex.match?(~r/^\d+$/, s),
-        do: String.pad_leading(s, 5),
-        else: s
-    end)
+    parts =
+      String.split(s, "+")
+      |> hd()
+      |> String.split([".", "-"])
+      |> Enum.map(fn s ->
+        if Regex.match?(~r/^\d+$/, s),
+          do: String.pad_leading(s, 5),
+          else: s
+      end)
 
     if length(parts) == 3,
       do: parts ++ ["~"],

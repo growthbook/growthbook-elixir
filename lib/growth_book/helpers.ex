@@ -14,7 +14,10 @@ defmodule GrowthBook.Helpers do
   This checks if a userId is within an experiment namespace or not.
   """
   @spec in_namespace?(String.t(), GrowthBook.namespace() | nil) :: boolean()
-  def in_namespace?(_, nil) do true end
+  def in_namespace?(_, nil) do
+    true
+  end
+
   def in_namespace?(user_id, {namespace, min, max}) do
     hash = Hash.hash("__#{namespace}", user_id, 1)
     hash >= min and hash < max
@@ -24,29 +27,35 @@ defmodule GrowthBook.Helpers do
   Determines if a number n is within the provided range.
   """
   @spec in_range?(number(), BucketRange.t()) :: boolean()
-  def in_range?(n, {min, max}), do: n >=min and n < max
+  def in_range?(n, {min, max}), do: n >= min and n < max
 
   @doc """
   Determines if the user is part of a gradual feature rollout.
   """
-  @spec included_in_rollout?(map(), String.t(), String.t(), BucketRange.t(), number(), integer()) ::boolean()
+  @spec included_in_rollout?(map(), String.t(), String.t(), BucketRange.t(), number(), integer()) ::
+          boolean()
   def included_in_rollout?(_attributes, _seed, _hash_attribute, nil, nil, _hash_version), do: true
+
   def included_in_rollout?(attributes, seed, hash_attribute, range, coverage, hash_version) do
     hash_attribute = coalesce(hash_attribute, "id")
     hash_value = attributes[hash_attribute] || ""
+
     case hash_value do
-      "" -> false
+      "" ->
+        false
+
       _ ->
         n = Hash.hash(seed, hash_value, hash_version || 1)
+
         case {range, coverage} do
-          {nil, coverage} -> n <=coverage
+          {nil, coverage} -> n <= coverage
           {range, _} -> in_range?(n, range)
         end
     end
   end
 
-  @spec coalesce([any()]) ::any()
-  @spec coalesce(any(), any()) ::any()
+  @spec coalesce([any()]) :: any()
+  @spec coalesce(any(), any()) :: any()
   def coalesce(v1, v2), do: coalesce([v1, v2])
   def coalesce([last]), do: last
   def coalesce([nil | next]), do: coalesce(next)

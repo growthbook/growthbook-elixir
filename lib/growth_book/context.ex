@@ -57,7 +57,6 @@ defmodule GrowthBook.Context do
   """
   @type attributes() :: %{String.t() => term()}
 
-
   @typedoc """
   Features
 

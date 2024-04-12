@@ -31,21 +31,29 @@ defmodule GrowthBook.ExperimentResult do
   In that case, convert the variation's array index to a string (e.g. 0 -> "0") and use that as the key instead.
   """
   @type t() :: %__MODULE__{
-    in_experiment?: boolean(),
-    variation_id: integer(),
-    value: term(),
-    hash_used?: boolean(),
-    hash_attribute: String.t(),
-    hash_value: String.t() | integer(),
-    feature_id: String.t(),
-    key: String.t(),
-    bucket: float(),
-    name: String.t(),
-    passthrough?: boolean(),
-    sticky_bucket_used?: boolean()
-  }
+          in_experiment?: boolean(),
+          variation_id: integer(),
+          value: term(),
+          hash_used?: boolean(),
+          hash_attribute: String.t(),
+          hash_value: String.t() | integer(),
+          feature_id: String.t(),
+          key: String.t(),
+          bucket: float(),
+          name: String.t(),
+          passthrough?: boolean(),
+          sticky_bucket_used?: boolean()
+        }
 
-  @enforce_keys [:value, :variation_id, :in_experiment?, :hash_attribute, :hash_value, :key, :passthrough?]
+  @enforce_keys [
+    :value,
+    :variation_id,
+    :in_experiment?,
+    :hash_attribute,
+    :hash_value,
+    :key,
+    :passthrough?
+  ]
   defstruct [
     :in_experiment?,
     :variation_id,

@@ -83,13 +83,13 @@ defmodule GrowthBook do
 
   @doc false
   @spec get_experiment_result(
-    Context.t(),
-    Experiment.t(),
-    String.t() | nil,
-    integer() | nil,
-    boolean() | nil,
-    number() | nil
-  ) :: ExperimentResult.t()
+          Context.t(),
+          Experiment.t(),
+          String.t() | nil,
+          integer() | nil,
+          boolean() | nil,
+          number() | nil
+        ) :: ExperimentResult.t()
   def get_experiment_result(
         %Context{} = context,
         %Experiment{} = experiment,
@@ -98,7 +98,6 @@ defmodule GrowthBook do
         hash_used \\ false,
         bucket \\ nil
       ) do
-
     {in_experiment, variation_id} =
       if variation_id < 0 or variation_id >= length(experiment.variations),
         do: {false, 0},
@@ -107,10 +106,18 @@ defmodule GrowthBook do
     hash_attribute = experiment.hash_attribute || "id"
     hash_value = context.attributes[hash_attribute] || ""
 
-    meta = if is_list(experiment.meta) do Enum.at(experiment.meta, variation_id) end
+    meta =
+      if is_list(experiment.meta) do
+        Enum.at(experiment.meta, variation_id)
+      end
 
     %ExperimentResult{
-      key: if meta && meta.key do meta.key else to_string(variation_id) end,
+      key:
+        if meta && meta.key do
+          meta.key
+        else
+          to_string(variation_id)
+        end,
       feature_id: feature_id,
       in_experiment?: in_experiment,
       hash_used?: hash_used,
@@ -118,7 +125,10 @@ defmodule GrowthBook do
       value: Enum.at(experiment.variations, variation_id),
       hash_attribute: hash_attribute,
       hash_value: hash_value,
-      name: if meta && meta.name do meta.name end,
+      name:
+        if meta && meta.name do
+          meta.name
+        end,
       passthrough?: meta && meta.passthrough?,
       bucket: bucket
     }
@@ -139,7 +149,9 @@ defmodule GrowthBook do
         Logger.debug(
           "No feature with id: #{feature_id}, known features are: #{inspect(Map.keys(context.features))}"
         )
+
         get_feature_result(nil, :unknown_feature)
+
       %Feature{rules: rules} = feature ->
         eval_rules(context, feature_id, feature, rules, path)
     end
@@ -150,8 +162,15 @@ defmodule GrowthBook do
     get_feature_result(feature.default_value, :default_value)
   end
 
-  defp eval_rules(%Context{} = context, feature_id, %Feature{} = feature, [%FeatureRule{} = rule | rest], path) do
-    with true <- ParentCondition.eval(context, rule.parent_conditions, [feature_id | path]) || :skip,
+  defp eval_rules(
+         %Context{} = context,
+         feature_id,
+         %Feature{} = feature,
+         [%FeatureRule{} = rule | rest],
+         path
+       ) do
+    with true <-
+           ParentCondition.eval(context, rule.parent_conditions, [feature_id | path]) || :skip,
          true <- not filtered_out?(context, rule.filters) || :skip,
          true <- eval_rule_condition(context.attributes, rule.condition) || :skip,
          true <- eval_forced_rule(context.attributes, feature_id, rule),
@@ -160,26 +179,31 @@ defmodule GrowthBook do
          true <- (result.in_experiment? && !result.passthrough?) || :skip do
       get_feature_result(result.value, :experiment, exp, result)
     else
-      :skip -> eval_rules(context, feature_id, feature, rest, path)
-      %FeatureResult{} = result -> result
+      :skip ->
+        eval_rules(context, feature_id, feature, rest, path)
+
+      %FeatureResult{} = result ->
+        result
+
       {:error, %ParentCondition.CyclingError{}} ->
         get_feature_result(nil, :cyclic_prerequisite)
+
       {:error, %ParentCondition.PrerequisiteError{}} ->
         get_feature_result(nil, :prerequisite)
     end
   end
 
   defp eval_forced_rule(_, _, %FeatureRule{force: nil}), do: true
+
   defp eval_forced_rule(attributes, feature_id, %FeatureRule{} = rule) do
     if Helpers.included_in_rollout?(
-          attributes,
-          Helpers.coalesce(rule.seed, feature_id),
-          rule.hash_attribute,
-          rule.range,
-          rule.coverage,
-          rule.hash_version
-      )
-    do
+         attributes,
+         Helpers.coalesce(rule.seed, feature_id),
+         rule.hash_attribute,
+         rule.range,
+         rule.coverage,
+         rule.hash_version
+       ) do
       # TODO add rule.tracks callbacks calls
       get_feature_result(rule.force, :force)
     else
@@ -188,18 +212,24 @@ defmodule GrowthBook do
   end
 
   defp eval_rule_condition(_, nil), do: true
+
   defp eval_rule_condition(attributes, condition),
     do: Condition.eval_condition(attributes, condition)
 
   defp filtered_out?(_context, nil), do: false
+
   defp filtered_out?(context, filters) when is_list(filters) do
     Enum.any?(filters, &filtered_out?(context, &1))
   end
+
   defp filtered_out?(%Context{} = context, %Filter{} = filter) do
     hash_attribute = filter.attribute
     hash_value = context.attributes[hash_attribute] || ""
+
     case hash_value do
-      "" -> true
+      "" ->
+        true
+
       _ ->
         n = Hash.hash(filter.seed, hash_value, filter.hash_version)
         not Enum.any?(filter.ranges, &Helpers.in_range?(n, &1))
@@ -221,11 +251,19 @@ defmodule GrowthBook do
          true <- exp.active? || {:error, "is not active"},
          {:ok, _hash_attribute, hash_value} <- get_experiment_hash_value(context, exp),
          true <- not filtered_out?(context, exp.filters) || {:error, "filtered out"},
-         true <- (exp.filters || []) != [] || Helpers.in_namespace?(hash_value, exp.namespace) || {:error, "not in namespace"},
-         true <- eval_rule_condition(context.attributes, exp.condition) || {:error, "condition is false"},
-         true <- ParentCondition.eval(context, exp.parent_conditions, path) || {:error, "parent conditions are false"} do
+         true <-
+           (exp.filters || []) != [] || Helpers.in_namespace?(hash_value, exp.namespace) ||
+             {:error, "not in namespace"},
+         true <-
+           eval_rule_condition(context.attributes, exp.condition) ||
+             {:error, "condition is false"},
+         true <-
+           ParentCondition.eval(context, exp.parent_conditions, path) ||
+             {:error, "parent conditions are false"} do
+      bucket_ranges =
+        exp.ranges ||
+          Helpers.get_bucket_ranges(variations_count, exp.coverage || 1.0, exp.weights || [])
 
-      bucket_ranges = exp.ranges || Helpers.get_bucket_ranges(variations_count, exp.coverage || 1.0, exp.weights || [])
       hash = Hash.hash(exp.seed || exp.key, hash_value, exp.hash_version || 1)
       variation_id = Helpers.choose_variation(hash, bucket_ranges)
 
@@ -249,20 +287,25 @@ defmodule GrowthBook do
       {:error, %ParentCondition.CyclingError{message: message}} ->
         Logger.debug("Experiment #{exp.key} skipped: #{message}")
         get_experiment_result(context, exp)
+
       {:error, %ParentCondition.PrerequisiteError{message: message}} ->
         Logger.debug("Experiment #{exp.key} skipped: #{message}")
         get_experiment_result(context, exp)
+
       {:error, error} ->
         Logger.debug("Experiment #{exp.key} skipped: #{error}")
         get_experiment_result(context, exp)
+
       %ExperimentResult{} = result ->
         result
     end
   end
 
   defp check_query_string_override(%Context{url: nil}, %Experiment{}, _), do: :ok
+
   defp check_query_string_override(%Context{url: url} = context, %Experiment{} = exp, feature_id) do
     qs_override = Helpers.get_query_string_override(exp.key, url, length(exp.variations))
+
     if not is_nil(qs_override) do
       get_experiment_result(context, exp, feature_id, qs_override)
     else
@@ -280,6 +323,7 @@ defmodule GrowthBook do
   defp get_experiment_hash_value(%Context{} = context, %Experiment{} = exp) do
     hash_attribute = exp.hash_attribute || "id"
     hash_value = context.attributes[hash_attribute] || ""
+
     case hash_value do
       "" -> get_experiment_fallback_value(context, exp)
       _ -> {:ok, hash_attribute, hash_value}

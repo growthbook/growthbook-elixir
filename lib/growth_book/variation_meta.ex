@@ -14,10 +14,10 @@ defmodule GrowthBook.VariationMeta do
   """
 
   @type t() :: %__MODULE__{
-    key: String.t() | nil,
-    name: String.t() | nil,
-    passthrough?: boolean()
-  }
+          key: String.t() | nil,
+          name: String.t() | nil,
+          passthrough?: boolean()
+        }
 
   defstruct [
     :key,

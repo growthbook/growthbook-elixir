@@ -16,11 +16,11 @@ defmodule GrowthBook.Filter do
   - **`attribute`** (`t:String.t/0`) - The attribute to use (default to "id")
   """
   @type t() :: %__MODULE__{
-     seed: String.t(),
-     ranges: [BucketRange.t()],
-     hash_version: integer() ,
-     attribute: String.t()
-  }
+          seed: String.t(),
+          ranges: [BucketRange.t()],
+          hash_version: integer(),
+          attribute: String.t()
+        }
 
   defstruct [
     :seed,

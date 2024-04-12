@@ -32,7 +32,13 @@ defmodule GrowthBook.FeatureResult do
         }
 
   @typedoc "The source of a feature"
-  @type source() :: :unknown_feature | :cyclic_prerequisite | :prerequisite | :default_value | :force | :experiment
+  @type source() ::
+          :unknown_feature
+          | :cyclic_prerequisite
+          | :prerequisite
+          | :default_value
+          | :force
+          | :experiment
 
   @enforce_keys [:value, :source, :on, :off, :on?, :off?]
   defstruct value: nil,
