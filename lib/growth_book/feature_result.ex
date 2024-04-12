@@ -11,9 +11,9 @@ defmodule GrowthBook.FeatureResult do
 
   The result of evaluating a `GrowthBook.Feature`. Has a number of keys:
 
-  - **`value`** (`term()`) - The assigned value of the feature
-  - **`on`**/**`on?`** (`boolean()`) - The assigned value cast to a boolean
-  - **`off`**/**`off?`** (`boolean()`) - The assigned value cast to a boolean and then negated
+  - **`value`** (`t:term/0`) - The assigned value of the feature
+  - **`on`**/**`on?`** (`t:boolean/0`) - The assigned value cast to a boolean
+  - **`off`**/**`off?`** (`t:boolean/0`) - The assigned value cast to a boolean and then negated
   - **`source`** (`t:source/0`) - The source of the feature result
   - **`experiment`** (`t:GrowthBook.Experiment.t/0` or `nil`) - When source is `:experiment`, this
     will be an `%GrowthBook.Experiment{}` struct

@@ -35,19 +35,6 @@ is virtually no added latency to running experiments or using feature flags.
 
 ```elixir
 # Create a context, which can be reused for multiple users
-config = Jason.decode!("""
-{
-  "overrides": {
-    "checkout-v2": {
-      "status": "running",
-      "coverage": 1,
-      "weights": [0.5, 0.5],
-      "force": 0
-    }
-  }
-}
-""")
-
 features_config = Jason.decode!("""
 {
   "features": {
@@ -62,13 +49,11 @@ features_config = Jason.decode!("""
 }
 """)
 
-overrides = GrowthBook.Config.experiment_overrides_from_config(config)
 features = GrowthBook.Config.features_from_config(features_config)
 
 context = %GrowthBook.Context{
   enabled?: true,
   features: features,
-  overrides: overrides,
   attributes: %{
     "id" => "12345",
     "country_code" => "NL",
@@ -88,6 +73,7 @@ Logger.info("Color: " <> color)
 # Run an inline experiment
 if GrowthBook.run(context, %GrowthBook.Experiment{
   key: "checkout-v2",
+  active?: true,
   coverage: 1,
   variations: [1, 2]
 }).in_experiment? do
@@ -110,6 +96,6 @@ end
 ## License
 
 This library is MIT licensed. See the
-[LICENSE](https://raw.github.com/jeroenvisser101/growthbook-elixir/main/LICENSE)
+[LICENSE](https://github.com/growthbook/growthbook-elixir/blob/main/LICENSE)
 file in this repository for details.
 

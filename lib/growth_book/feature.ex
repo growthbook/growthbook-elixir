@@ -12,8 +12,8 @@ defmodule GrowthBook.Feature do
 
   A **Feature** consists of a default value plus rules that can override the default.
 
-  - **default_value** (`term()`) - The default value (should use `nil` if not specified)
-  - **rules** (list of `t:FeatureRule.t/0`) - List of `%FeatureRule{}` that determine when and
+  - **default_value** (`t:term/0`) - The default value (should use `nil` if not specified)
+  - **rules** (list of `t:GrowthBook.FeatureRule.t/0`) - List of rules that determine when and
     how the `default_value` gets overridden
   """
   @type t() :: %__MODULE__{
@@ -21,5 +21,8 @@ defmodule GrowthBook.Feature do
           rules: [FeatureRule.t()] | nil
         }
 
-  defstruct default_value: nil, rules: nil
+  defstruct [
+    :default_value,
+    :rules
+  ]
 end

@@ -64,16 +64,24 @@ defmodule GrowthBook.MixProject do
           GrowthBook.Config,
           GrowthBook.Context
         ],
-        Experiments: [
-          GrowthBook.Experiment,
-          GrowthBook.ExperimentResult
-        ],
         Features: [
           GrowthBook.Feature,
           GrowthBook.FeatureResult,
           GrowthBook.FeatureRule
         ],
-        "Private API": [GrowthBook.Helpers, GrowthBook.Condition]
+        Experiments: [
+          GrowthBook.Experiment,
+          GrowthBook.ExperimentResult
+        ],
+        "Private API": [
+          GrowthBook.Helpers,
+          GrowthBook.Condition,
+          GrowthBook.BucketRange,
+          GrowthBook.Filter,
+          GrowthBook.Hash,
+          GrowthBook.ParentCondition,
+          GrowthBook.VariationMeta
+        ]
       ]
     ]
   end

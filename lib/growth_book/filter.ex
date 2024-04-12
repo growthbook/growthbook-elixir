@@ -10,10 +10,10 @@ defmodule GrowthBook.Filter do
 
   A **Filter** has the follwing properties:
 
-  - **`seed`** (`String.t()) - Teh sedd used in the hash
-  - **`ranges`** (list of `t:BucketRange.t/0) - List of ranges that are included
-  - **`hash_version`** (`integer()`) - The hash version to use (default to 2)
-  - **`attribute`** (`String.t()`) - The attribute to use (default to "id")
+  - **`seed`** (`t:String.t/0`) - Teh sedd used in the hash
+  - **`ranges`** (list of `t:GrowthBook.BucketRange.t/0`) - List of ranges that are included
+  - **`hash_version`** (`t:integer/0`) - The hash version to use (default to 2)
+  - **`attribute`** (`t:String.t/0`) - The attribute to use (default to "id")
   """
   @type t() :: %__MODULE__{
      seed: String.t(),

@@ -10,18 +10,18 @@ defmodule GrowthBook.ExperimentResult do
 
   The result of running an `GrowthBook.Experiment` given a specific `GrowthBook.Context`
 
-  - **`in_experiment?`** (`boolean()`) - Whether or not the user is part of the experiment
-  - **`variation_id`** (`integer()`) - The array index of the assigned variation
-  - **`value`** (`any()`) - The array value of the assigned variation
-  - **`hash_used?`** (`boolean()`) - If a hash was used to assign a variation
-  - **`hash_attribute`** (`String.t()`) - The user attribute used to assign a variation
-  - **`hash_value`** (`String.t()`) - The value of that attribute
-  - **`feature_id`** (`String.t()`) - The id of the feature (if any) that the experiment came from
-  - **`key`** (`String.t()`) - The unique key for the assigned variation
-  - **`bucket`** (`float()`) - The hash value used to assign a variation (float from 0 to 1)
-  - **`name`** (`String.t()`) - The human-readable name of the assigned variation
-  - **`passthrough?`** (`boolean()`) - Used for holdout groups
-  - **`sticky_bucket_used?`** (`boolean()`) - If sticky bucketing was used to assign a variation
+  - **`in_experiment?`** (`t:boolean/0`) - Whether or not the user is part of the experiment
+  - **`variation_id`** (`t:integer/0`) - The array index of the assigned variation
+  - **`value`** (`t:any/0`) - The array value of the assigned variation
+  - **`hash_used?`** (`t:boolean/0`) - If a hash was used to assign a variation
+  - **`hash_attribute`** (`t:String.t/0`) - The user attribute used to assign a variation
+  - **`hash_value`** (`t:String.t/0`) - The value of that attribute
+  - **`feature_id`** (`t:String.t/0`) - The id of the feature (if any) that the experiment came from
+  - **`key`** (`t:String.t/0`) - The unique key for the assigned variation
+  - **`bucket`** (`t:float/0`) - The hash value used to assign a variation (float from 0 to 1)
+  - **`name`** (`t:String.t/0`) - The human-readable name of the assigned variation
+  - **`passthrough?`** (`t:boolean/0`) - Used for holdout groups
+  - **`sticky_bucket_used?`** (`t:boolean/0`) - If sticky bucketing was used to assign a variation
 
   The `variation_id` and `value` should always be set, even when `in_experiment?` is false.
 

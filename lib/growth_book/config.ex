@@ -62,6 +62,10 @@ defmodule GrowthBook.Config do
                end
       parent_conditions = Map.get(feature_rule, "parentConditions", []) |> Enum.map(&ParentCondition.from_json/1)
       filters = Map.get(feature_rule, "filters", []) |> Enum.map(&Filter.from_json/1)
+      range = case Map.get(feature_rule, "range") do
+                nil -> nil
+                range -> BucketRange.from_json(range)
+              end
 
       %FeatureRule{
         condition: Map.get(feature_rule, "condition"),
@@ -74,7 +78,7 @@ defmodule GrowthBook.Config do
         namespace: namespace,
         hash_attribute: Map.get(feature_rule, "hashAttribute"),
         hash_version: Map.get(feature_rule, "hashVersion") || 1,
-        range: Map.get(feature_rule, "range") |> BucketRange.from_json(),
+        range: range,
         ranges: ranges,
         meta: meta,
         filters: filters,

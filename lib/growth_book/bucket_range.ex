@@ -9,9 +9,10 @@ defmodule GrowthBook.BucketRange do
   {0.3, 0.7}
   ```
   """
+
   @type t() :: {number(), number()}
 
-  def from_json(nil), do: nil
+  @spec from_json([number()]) :: t()
   def from_json([min, max]) when is_number(min) and is_number(max) do
     {min, max}
   end

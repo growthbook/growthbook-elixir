@@ -54,7 +54,7 @@ defmodule GrowthBook.Helpers do
   def coalesce([v | _]), do: v
 
   @doc """
-  Returns an list of floats with `count` items that are all equal and sum to 1. For example,  would return `[0.5, 0.5]`.
+  Returns an list of floats with `count` items that are all equal and sum to 1.
 
   ## Examples
 

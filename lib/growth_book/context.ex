@@ -14,14 +14,14 @@ defmodule GrowthBook.Context do
 
   **Context** struct. Has a number of optional properties:
 
-  - **`enabled?`** (`boolean()`) - Switch to globally disable all experiments. Default `true`.
+  - **`enabled?`** (`t:boolean/0`) - Switch to globally disable all experiments. Default `true`.
   - **`attributes`** (`t:attributes/0`) - Map of user attributes that are used
     to assign variations
-  - **`url`** (`String.t()`) - The URL of the current page
+  - **`url`** (`t:String.t/0`) - The URL of the current page
   - **`features`** (`t:features/0`) - Feature definitions (usually pulled from an API or cache)
   - **`forced_variations`** (`t:forced_variations/0`) - Force specific experiments to always assign
     a specific variation (used for QA)
-  - **`qa_mode?`** (`boolean()`) - If `true`, random assignment is disabled and only explicitly
+  - **`qa_mode?`** (`t:boolean/0`) - If `true`, random assignment is disabled and only explicitly
     forced variations are used.
   """
   @type t() :: %__MODULE__{
@@ -55,7 +55,7 @@ defmodule GrowthBook.Context do
   }
   ```
   """
-  @type attributes() :: %{required(String.t()) => term()}
+  @type attributes() :: %{String.t() => term()}
 
 
   @typedoc """
@@ -79,7 +79,7 @@ defmodule GrowthBook.Context do
   }
   ```
   """
-  @type features() :: %{required(GrowthBook.feature_key()) => Feature.t()}
+  @type features() :: %{GrowthBook.feature_key() => Feature.t()}
 
   @typedoc """
   Forced variations map
@@ -96,7 +96,7 @@ defmodule GrowthBook.Context do
   }
   ```
   """
-  @type forced_variations() :: %{required(GrowthBook.feature_key()) => integer()}
+  @type forced_variations() :: %{GrowthBook.feature_key() => integer()}
 
   defstruct attributes: %{},
             features: %{},

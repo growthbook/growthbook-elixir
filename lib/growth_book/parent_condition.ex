@@ -46,9 +46,9 @@ defmodule GrowthBook.ParentCondition do
 
   A **ParentCondition** consists of a parent feature's id (string), a condition (Condition), and an optional gate (boolean) flag.
 
-  - **`id`** (`String.t()`) - parent feature's id
-  - **`condition`** `GrowthBook.Condition.t()` - condition
-  - **`gate`** `boolean()`
+  - **`id`** (`t:String.t/0`) - parent feature's id
+  - **`condition`** (`t:GrowthBook.Condition.t/0`) - condition
+  - **`gate`** (`t:boolean/0`) -  If gate is true, then this is a blocking feature-level prerequisite; otherwise it applies to the current rule only.
   """
   @type t() :: %__MODULE__{
      id: String.t(),

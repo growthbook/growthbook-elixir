@@ -19,28 +19,28 @@ defmodule GrowthBook.Experiment do
 
   Defines a single **Experiment**. Has a number of properties:
 
-  - **`key`** (`String.t()`) - The globally unique identifier for the experiment
+  - **`key`** (`t:String.t/0`) - The globally unique identifier for the experiment
   - **`variations`** (list of `t:variation/0`) - The different variations to choose between
-  - **`weights` (`[float()]`) - How to weight traffic between variations. Must add to 1.
-  - **`active?`** (`boolean()`) - If set to false, always return the control (first variation)
-  - **`coverage`** (`float()`) - What percent of users should be included in the experiment (between 0 and 1, inclusive)
-  - **`ranges`** (`[t:BucketRange.t/0]`) - Array of ranges, one per variation
-  - **`condition`** (`t:Condition.t/0`) - Optional targeting condition
+  - **`weights`** (list of `t:float/0`) - How to weight traffic between variations. Must add to 1.
+  - **`active?`** (`t:boolean/0`) - If set to false, always return the control (first variation)
+  - **`coverage`** (`t:float/0`) - What percent of users should be included in the experiment (between 0 and 1, inclusive)
+  - **`ranges`** (list of `t:GrowthBook.BucketRange.t/0`) - Array of ranges, one per variation
+  - **`condition`** (`t:GrowthBook.Condition.t/0`) - Optional targeting condition
   - **`namespace`** (`t:GrowthBook.namespace/0`) - Adds the experiment to a namespace
-  - **`force`** (`integer()`) - All users included in the experiment will be forced into the specific variation index
-  - **`hash_attribute`** (`String.t/0`) - What user attribute should be used to assign variations (defaults to id)
-  - **`fallback_attribute`** (`String.t/0`) - When using sticky bucketing, can be used as a fallback to assign variations
-  - **`hash_version`** (`integer()`) - The hash version to use (default to 1)
-  - **`meta`** (`[t:VariationMeta.t()]`) - Meta info about the variations
-  - **`filters`** (`[t:Filter.t()]`) - Array of filters to apply
-  - **`seed`** (`String.t()`) - The hash seed to use
-  - **`name`** (`String.t()`) - Human-readable name for the experiment
-  - **`phase`** (`String.t()`) - Id of the current experiment phase
-  - **`disable_sticky_bucketing` (`boolean()`) - If true, sticky bucketing will be disabled for this experiment.
+  - **`force`** (`t:integer/0`) - All users included in the experiment will be forced into the specific variation index
+  - **`hash_attribute`** (`t:String.t/0`) - What user attribute should be used to assign variations (defaults to id)
+  - **`fallback_attribute`** (`t:String.t/0`) - When using sticky bucketing, can be used as a fallback to assign variations
+  - **`hash_version`** (`t:integer/0`) - The hash version to use (default to 1)
+  - **`meta`** (list of `t:GrowthBook.VariationMeta.t/0`) - Meta info about the variations
+  - **`filters`** (list of `t:GrowthBook.Filter.t/0`) - Array of filters to apply
+  - **`seed`** (`t:String.t/0`) - The hash seed to use
+  - **`name`** (`t:String.t/0`) - Human-readable name for the experiment
+  - **`phase`** (`t:String.t/0`) - Id of the current experiment phase
+  - **`disable_sticky_bucketing`** (`t:boolean/0`) - If true, sticky bucketing will be disabled for this experiment.
     (Note: sticky bucketing is only available if a StickyBucketingService is provided in the Context)
-  - **`bucket_version`** (`integer()`) - An sticky bucket version number that can be used to force a re-bucketing of users (default to 0)
-  - **`min_bucket_version`** (`integer()`) - Any users with a sticky bucket version less than this will be excluded from the experiment
-  - **`parent_conditions`** (list of t:ParentCondition.t()`) - Optional parent conditions
+  - **`bucket_version`** (`t:integer/0`) - An sticky bucket version number that can be used to force a re-bucketing of users (default to 0)
+  - **`min_bucket_version`** (`t:integer/0`) - Any users with a sticky bucket version less than this will be excluded from the experiment
+  - **`parent_conditions`** (list of `t:GrowthBook.ParentCondition.t/0`) - Optional parent conditions
   """
   @type t() :: %__MODULE__{
     key: String.t(),
@@ -63,7 +63,7 @@ defmodule GrowthBook.Experiment do
     disable_sticky_bucketing: boolean() | nil,
     bucket_version: integer() | nil,
     min_bucket_version: integer() | nil,
-    parent_conditions: [ParentCondtion.t()] | nil
+    parent_conditions: [ParentCondition.t()] | nil
   }
 
   @typedoc """

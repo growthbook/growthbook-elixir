@@ -8,9 +8,9 @@ defmodule GrowthBook.VariationMeta do
 
   Has the following properties:
 
-  - **`key`** (`String.t()`) - A unique key for this variation (optional)
-  - **`name`** (`String.t()`) - A human-readable name for this variation (optional)
-  - **`passthrough?`** (`boolean()`) - Used to implement holdout groups (optional)
+  - **`key`** (`t:String.t/0`) - A unique key for this variation (optional)
+  - **`name`** (`t:String.t/0`) - A human-readable name for this variation (optional)
+  - **`passthrough?`** (`t:boolean/0`) - Used to implement holdout groups (optional)
   """
 
   @type t() :: %__MODULE__{

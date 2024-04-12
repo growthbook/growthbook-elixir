@@ -214,7 +214,7 @@ defmodule GrowthBook do
   @spec run(Context.t(), Experiment.t(), String.t() | nil) :: ExperimentResult.t()
   def run(%Context{} = context, %Experiment{} = exp, feature_id \\ nil, path \\ []) do
     with variations_count <- length(exp.variations),
-         true <- variations_count >=2 || {:error, "has less than 2 variations"},
+         true <- variations_count >= 2 || {:error, "has less than 2 variations"},
          true <- context.enabled? || {:error, "disabled"},
          :ok <- check_query_string_override(context, exp, feature_id),
          :ok <- check_forced_variation(context, exp, feature_id),
