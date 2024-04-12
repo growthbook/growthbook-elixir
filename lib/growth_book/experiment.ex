@@ -11,7 +11,8 @@ defmodule GrowthBook.Experiment do
     BucketRange,
     Condition,
     ParentCondition,
-    Experiment
+    Experiment,
+    Filter
   }
 
   @typedoc """

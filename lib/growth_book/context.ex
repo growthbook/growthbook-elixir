@@ -26,7 +26,7 @@ defmodule GrowthBook.Context do
   """
   @type t() :: %__MODULE__{
           enabled?: boolean(),
-          attributes: attributes(),
+          attributes: attributes() | nil,
           url: String.t() | nil,
           features: features(),
           forced_variations: forced_variations(),

@@ -10,7 +10,8 @@ defmodule GrowthBook.FeatureRule do
     Condition,
     VariationMeta,
     BucketRange,
-    Filter
+    Filter,
+    ParentCondition
   }
 
   @typedoc """
