@@ -1,8 +1,8 @@
 defmodule GrowthBook.MixProject do
   use Mix.Project
 
-  @version "0.1.1"
-  @repo_url "https://github.com/jeroenvisser101/growthbook-elixir"
+  @version "0.2.0"
+  @repo_url "https://github.com/growthbook/growthbook-elixir"
 
   def project do
     [
@@ -46,7 +46,7 @@ defmodule GrowthBook.MixProject do
 
   defp package do
     [
-      maintainers: ["Jeroen Visser"],
+      maintainers: ["GrowthBook"],
       licenses: ["MIT"],
       links: %{"GitHub" => @repo_url}
     ]
