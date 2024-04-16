@@ -31,6 +31,18 @@ Furthermore, GrowthBook supports both experiments (A/B tests and multivariate te
 flags. Because all logic to run experiments and feature flags is contained in the library, there
 is virtually no added latency to running experiments or using feature flags.
 
+## Installation
+
+Add `growthbook` to your list of dependencies in `mix.exs`:
+
+```elixir
+def deps do
+  [
+    {:growthbook, "~> 0.1"}
+  ]
+end
+```
+
 ## Usage
 
 ```elixir
@@ -78,18 +90,6 @@ if GrowthBook.run(context, %GrowthBook.Experiment{
   variations: [1, 2]
 }).in_experiment? do
   Logger.info("In experiment")
-end
-```
-
-## Installation
-
-Add `growthbook` to your list of dependencies in `mix.exs`:
-
-```elixir
-def deps do
-  [
-    {:growthbook, "~> 0.1"}
-  ]
 end
 ```
 
