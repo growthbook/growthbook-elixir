@@ -27,6 +27,7 @@
         {
           default = pkgs.mkShell {
             buildInputs = with pkgs; [
+              glibcLocales
               elixir_1_14
             ];
           };
