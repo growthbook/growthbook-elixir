@@ -38,7 +38,7 @@ Add `growthbook` to your list of dependencies in `mix.exs`:
 ```elixir
 def deps do
   [
-    {:growthbook, "~> 0.1"}
+    {:growthbook, "~> 0.2"}
   ]
 end
 ```
