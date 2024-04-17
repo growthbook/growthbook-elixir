@@ -2,8 +2,6 @@
 
 [Online documentation](https://hexdocs.pm/growthbook) | [Hex.pm](https://hex.pm/packages/growthbook)
 
-> NOTE: This library is in active development, and the API may change.
-
 <!-- MDOC !-->
 
 `GrowthBook` is a [GrowthBook](https://growthbook.io) SDK for Elixir/OTP.
@@ -16,7 +14,6 @@ To ensure an Elixir-friendly API, the implementation deviates from the official 
 - Comparisons with `undefined` are implemented by using `:undefined`
 - Function names are converted to `snake_case`, and `is_` prefix is replaced with a `?` suffix
 - Instead of classes, a Context struct is used (similar to `%Plug.Conn{}` in `plug`)
-- There may be some discrepancies between handling of Truthy values between the JS and Elixir SDKs (if you notice this, a issue, or better, a PR is welcome)
 
 ## What is GrowthBook?
 
