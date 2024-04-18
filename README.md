@@ -1,4 +1,6 @@
-# GrowthBook
+![Elixir SDK for the GrowthBook feature flagging and AB testing platform](https://docs.growthbook.io/images/GrowthBook-hero-elixir.png)
+
+# GrowthBook - Elixir SDK
 
 [Online documentation](https://hexdocs.pm/growthbook) | [Hex.pm](https://hex.pm/packages/growthbook)
 
