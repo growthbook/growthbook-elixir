@@ -337,4 +337,58 @@ defmodule GrowthBook do
       {attr, val} -> {:ok, attr, val}
     end
   end
+
+  @doc """
+  Initialize GrowthBook with the feature repository configuration.
+
+  ## Options
+    * `:client_key` - Required. The API client key
+    * `:api_host` - Required. The GrowthBook API host
+    * `:decryption_key` - Optional. Key for decrypting feature payloads
+    * `:swr_ttl_seconds` - Optional. Cache TTL in seconds (default: 60)
+    * `:refresh_strategy` - Optional. Either :periodic or :manual (default: :periodic)
+    * `:on_refresh` - Optional. Function to call when features are refreshed
+
+  ## Example
+      GrowthBook.init(
+        client_key: "key_123",
+        api_host: "https://cdn.growthbook.io",
+        on_refresh: fn features ->
+          IO.puts "Features refreshed: #{map_size(features)} features available"
+        end
+      )
+  """
+  @spec init(Keyword.t()) :: :ok
+  def init(opts) do
+    # Validate required options
+    unless opts[:client_key] && opts[:api_host] do
+      raise ArgumentError, "client_key and api_host are required"
+    end
+
+    # Validate callback if provided
+    if opts[:on_refresh] && !is_function(opts[:on_refresh], 1) do
+      raise ArgumentError, "on_refresh must be a function that accepts one argument"
+    end
+
+    {:ok, _pid} = GrowthBook.FeatureRepository.start_link(opts)
+    :ok
+  end
+
+  @doc """
+  Build a context with the given attributes and features.
+  If features are not provided, they will be fetched from the repository.
+  """
+  @spec build_context(map(), map() | nil) :: Context.t()
+  def build_context(attributes, features \\ nil) do
+    features = features || GrowthBook.FeatureRepository.get_features()
+
+    %Context{
+      attributes: attributes,
+      features: features,
+      enabled?: true,
+      url: nil,
+      qa_mode?: false,
+      forced_variations: %{}
+    }
+  end
 end
