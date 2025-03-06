@@ -141,13 +141,13 @@ defmodule GrowthBook do
   """
   @spec feature(Context.t(), feature_key(), [feature_key()]) :: FeatureResult.t()
 
-  def feature(context, feature_id, path \\ [])
+  def feature(%Context{} = context, feature_id, path \\ []) do
+    features = Context.get_features(context)
 
-  def feature(%Context{features: features} = context, feature_id, path) do
     case Map.get(features, feature_id) do
       nil ->
         Logger.debug(
-          "No feature with id: #{feature_id}, known features are: #{inspect(Map.keys(context.features))}"
+          "No feature with id: #{feature_id}, known features are: #{inspect(Map.keys(features))}"
         )
 
         get_feature_result(nil, :unknown_feature)
@@ -376,15 +376,25 @@ defmodule GrowthBook do
 
   @doc """
   Build a context with the given attributes and features.
-  If features are not provided, they will be fetched from the repository.
+  If features are not provided, it will use the FeatureRepository to always get the latest features.
   """
   @spec build_context(map(), map() | nil) :: Context.t()
   def build_context(attributes, features \\ nil) do
-    features = features || GrowthBook.FeatureRepository.get_features()
+    features_provider =
+      case features do
+        nil ->
+          fn ->
+            raw_features = GrowthBook.FeatureRepository.get_features()
+            GrowthBook.Config.features_from_config(%{"features" => raw_features})
+          end
+
+        features ->
+          fn -> features end
+      end
 
     %Context{
       attributes: attributes,
-      features: features,
+      features_provider: features_provider,
       enabled?: true,
       url: nil,
       qa_mode?: false,
