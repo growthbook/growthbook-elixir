@@ -61,6 +61,8 @@ defmodule GrowthBook do
   """
   @type namespace() :: {String.t(), float(), float()}
 
+  @type init_result :: {:ok, :initialized} | {:error, String.t()}
+
   @doc false
   @spec get_feature_result(
           term(),
@@ -340,6 +342,7 @@ defmodule GrowthBook do
 
   @doc """
   Initialize GrowthBook with the feature repository configuration.
+  Returns {:ok, :initialized} if initialization succeeds with features loaded, {:error, reason} otherwise.
 
   ## Options
     * `:client_key` - Required. The API client key
@@ -348,17 +351,9 @@ defmodule GrowthBook do
     * `:swr_ttl_seconds` - Optional. Cache TTL in seconds (default: 60)
     * `:refresh_strategy` - Optional. Either :periodic or :manual (default: :periodic)
     * `:on_refresh` - Optional. Function to call when features are refreshed
-
-  ## Example
-      GrowthBook.init(
-        client_key: "key_123",
-        api_host: "https://cdn.growthbook.io",
-        on_refresh: fn features ->
-          IO.puts "Features refreshed: #{map_size(features)} features available"
-        end
-      )
+    * `:initialization_timeout` - Optional. Timeout in ms for initial feature fetch (default: 5000)
   """
-  @spec init(Keyword.t()) :: :ok
+  @spec init(Keyword.t()) :: init_result()
   def init(opts) do
     # Validate required options
     unless opts[:client_key] && opts[:api_host] do
@@ -370,8 +365,27 @@ defmodule GrowthBook do
       raise ArgumentError, "on_refresh must be a function that accepts one argument"
     end
 
-    {:ok, _pid} = GrowthBook.FeatureRepository.start_link(opts)
-    :ok
+    case GrowthBook.FeatureRepository.start_link(opts) do
+      {:ok, pid} ->
+        # Wait for initial feature fetch
+        timeout = opts[:initialization_timeout] || 5000
+
+        case GrowthBook.FeatureRepository.await_initialization(pid, timeout) do
+          :ok ->
+            {:ok, :initialized}
+
+          {:error, :timeout} ->
+            GenServer.stop(pid)
+            {:error, "initialization timed out after #{timeout}ms"}
+
+          {:error, reason} ->
+            GenServer.stop(pid)
+            {:error, "initialization failed: #{reason}"}
+        end
+
+      {:error, reason} ->
+        {:error, "failed to start feature repository: #{inspect(reason)}"}
+    end
   end
 
   @doc """
@@ -382,14 +396,8 @@ defmodule GrowthBook do
   def build_context(attributes, features \\ nil) do
     features_provider =
       case features do
-        nil ->
-          fn ->
-            raw_features = GrowthBook.FeatureRepository.get_features()
-            GrowthBook.Config.features_from_config(%{"features" => raw_features})
-          end
-
-        features ->
-          fn -> features end
+        nil -> &GrowthBook.FeatureRepository.get_latest_features/0
+        features -> fn -> features end
       end
 
     %Context{
