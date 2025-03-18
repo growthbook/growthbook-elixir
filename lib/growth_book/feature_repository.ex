@@ -17,11 +17,18 @@ defmodule GrowthBook.FeatureRepository do
     :refresh_strategy,
     :features,
     :last_fetch,
-    :on_refresh_callback
+    :on_refresh_callback,
+    initialization_status: :pending,
+    initialization_waiters: []
   ]
 
+  @spec start_link(any()) :: :ignore | {:error, any()} | {:ok, pid()}
   def start_link(opts) do
     GenServer.start_link(__MODULE__, opts, name: __MODULE__)
+  end
+
+  def await_initialization(pid, timeout) do
+    GenServer.call(pid, :await_initialization, timeout)
   end
 
   @impl true
@@ -51,8 +58,29 @@ defmodule GrowthBook.FeatureRepository do
       schedule_refresh(state.swr_ttl_seconds)
     end
 
-    # Initial fetch
-    {:ok, refresh_features(state)}
+    # Start initial fetch
+    send(self(), :initialize)
+
+    {:ok, state}
+  end
+
+  @impl true
+  def handle_call(:await_initialization, from, %{initialization_status: status} = state) do
+    case status do
+      :ready ->
+        {:reply, :ok, state}
+
+      {:error, reason} ->
+        {:reply, {:error, reason}, state}
+
+      :pending ->
+        # Monitor the caller and add to waiters list
+        {pid, _} = from
+        ref = Process.monitor(pid)
+
+        {:noreply,
+         %{state | initialization_waiters: [{from, ref} | state.initialization_waiters]}}
+    end
   end
 
   @impl true
@@ -75,12 +103,55 @@ defmodule GrowthBook.FeatureRepository do
     {:noreply, refresh_features(state)}
   end
 
+  @impl true
+  def handle_info(:initialize, state) do
+    case fetch_features(state) do
+      {:ok, features} ->
+        new_state = %{
+          state
+          | features: features,
+            last_fetch: DateTime.utc_now(),
+            initialization_status: :ready
+        }
+
+        # Notify all waiters
+        Enum.each(state.initialization_waiters, fn {pid, ref} ->
+          GenServer.reply(pid, :ok)
+          Process.demonitor(ref)
+        end)
+
+        # Schedule periodic refresh if needed
+        if state.refresh_strategy == :periodic do
+          schedule_refresh(state.swr_ttl_seconds)
+        end
+
+        {:noreply, %{new_state | initialization_waiters: []}}
+
+      {:error, reason} ->
+        Logger.error("Failed to initialize features: #{inspect(reason)}")
+        new_state = %{state | initialization_status: {:error, reason}}
+
+        # Notify all waiters of the error
+        Enum.each(state.initialization_waiters, fn {pid, ref} ->
+          GenServer.reply(pid, {:error, reason})
+          Process.demonitor(ref)
+        end)
+
+        {:noreply, %{new_state | initialization_waiters: []}}
+    end
+  end
+
   def get_features do
     GenServer.call(__MODULE__, :get_features)
   end
 
   def refresh do
     GenServer.cast(__MODULE__, :refresh)
+  end
+
+  def get_latest_features do
+    raw_features = get_features()
+    GrowthBook.Config.features_from_config(%{"features" => raw_features})
   end
 
   defp maybe_refresh_features(%{last_fetch: nil} = state), do: refresh_features(state)
@@ -175,20 +246,29 @@ defmodule GrowthBook.FeatureRepository do
 
   defp decrypt_features(encrypted_features, decryption_key) do
     try do
-      case GrowthBook.DecryptionUtils.decrypt(encrypted_features, decryption_key) do
+      # Ensure we're working with binaries
+      encrypted_features_binary = to_string(encrypted_features)
+      decryption_key_binary = to_string(decryption_key)
+
+      case GrowthBook.DecryptionUtils.decrypt(encrypted_features_binary, decryption_key_binary) do
         {:ok, decrypted_json} ->
           case Jason.decode(decrypted_json) do
-            {:ok, features} -> {:ok, features}
-            {:error, _} -> {:error, "Failed to parse decrypted features"}
+            {:ok, features} ->
+              {:ok, features}
+
+            {:error, reason} ->
+              Logger.error("Failed to parse decrypted features: #{inspect(reason)}")
+              {:error, "Failed to parse decrypted features"}
           end
 
         {:error, reason} ->
+          # Already logged in DecryptionUtils
           {:error, reason}
       end
     rescue
       e ->
-        Logger.error("Failed to decrypt features: #{Exception.message(e)}")
-        {:error, "Decryption failed"}
+        Logger.error("Unexpected error in decrypt_features: #{Exception.message(e)}")
+        {:error, "Decryption failed: #{Exception.message(e)}"}
     end
   end
 
