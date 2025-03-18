@@ -1,6 +1,6 @@
-![Elixir SDK for the GrowthBook feature flagging and AB testing platform](https://docs.growthbook.io/images/GrowthBook-hero-elixir.png)
-
 # GrowthBook - Elixir SDK
+
+![Elixir SDK for the GrowthBook feature flagging and AB testing platform](https://docs.growthbook.io/images/GrowthBook-hero-elixir.png)
 
 [Online documentation](https://hexdocs.pm/growthbook) | [Hex.pm](https://hex.pm/packages/growthbook)
 
@@ -46,6 +46,7 @@ end
 
 ```elixir
 # Create a context, which can be reused for multiple users
+# Approach 1: Manual Feature Configuration
 features_config = Jason.decode!("""
 {
   "features": {
@@ -62,15 +63,37 @@ features_config = Jason.decode!("""
 
 features = GrowthBook.Config.features_from_config(features_config)
 
-context = %GrowthBook.Context{
-  enabled?: true,
-  features: features,
-  attributes: %{
+context = GrowthBook.build_context(
+  %{
     "id" => "12345",
     "country_code" => "NL",
     "browser" => "chrome"
-  }
-}
+  },
+  features  # Explicitly provide features
+)
+
+# Approach 2: Auto-refreshing Features
+case GrowthBook.init(
+  client_key: "key_123",
+  api_host: "https://cdn.growthbook.io"
+) do
+  {:ok, :initialized} ->
+    Logger.info("GrowthBook ready to use")
+    # Start using GrowthBook...
+    
+  {:error, reason} ->
+    Logger.error("Failed to initialize GrowthBook: #{reason}")
+    # Handle initialization failure...
+end
+
+# Create context that automatically uses latest features
+context = GrowthBook.build_context(%{
+  "id" => "12345",
+  "country_code" => "NL",
+  "browser" => "chrome"
+})
+
+# Usage is the same for both approaches:
 
 # Use a feature toggle
 if GrowthBook.feature(context, "send-reminder").on? do
@@ -92,9 +115,48 @@ if GrowthBook.run(context, %GrowthBook.Experiment{
 end
 ```
 
+## Auto-Refresh Features
+
+GrowthBook now supports automatic feature refreshing from your GrowthBook API. Instead of manually managing features, you can initialize GrowthBook with your API credentials:
+
+```elixir
+# Initialize GrowthBook with auto-refresh
+GrowthBook.init(
+  client_key: "key_prod_123...",
+  api_host: "https://cdn.growthbook.io",
+  decryption_key: "key_123...",  # Optional: Required for encrypted features
+  swr_ttl_seconds: 60,  # Optional: Default is 60 seconds
+  on_refresh: fn features ->  # Optional: Callback when features are refreshed
+    Logger.info("Features refreshed: #{map_size(features)} available")
+    # Notify your application about new features
+    MyApp.FeatureNotifier.features_updated(features)
+  end
+)
+
+# Create context that automatically uses latest features
+context = GrowthBook.build_context(%{
+  "id" => "12345",
+  "country_code" => "NL",
+  "browser" => "chrome"
+})
+
+# Features will automatically refresh in the background
+# All feature evaluations will use the latest features
+if GrowthBook.feature(context, "send-reminder").on? do
+  Logger.info("Sending reminder")
+end
+```
+
+Key improvements:
+
+- **Auto-refresh**: Features automatically refresh from your GrowthBook API
+- **Encryption**: Support for encrypted feature payloads
+- **Callbacks**: Get notified when features are updated
+- **Resilient**: Keeps existing features on API errors
+- **Configurable**: Control refresh intervals and strategies
+
 ## License
 
 This library is MIT licensed. See the
 [LICENSE](https://github.com/growthbook/growthbook-elixir/blob/main/LICENSE)
 file in this repository for details.
-
