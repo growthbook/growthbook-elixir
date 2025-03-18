@@ -29,6 +29,7 @@ defmodule GrowthBook.Context do
           attributes: attributes() | nil,
           url: String.t() | nil,
           features_provider: features_provider(),
+          features: %{GrowthBook.feature_key() => Feature.t()} | nil,
           forced_variations: forced_variations(),
           qa_mode?: boolean()
         }
@@ -99,6 +100,7 @@ defmodule GrowthBook.Context do
 
   defstruct attributes: %{},
             features_provider: &GrowthBook.Context.default_features/0,
+            features: nil,
             enabled?: true,
             url: nil,
             qa_mode?: false,
@@ -111,6 +113,10 @@ defmodule GrowthBook.Context do
   Gets the latest features from the provider function
   """
   @spec get_features(t()) :: %{GrowthBook.feature_key() => Feature.t()}
+  def get_features(%__MODULE__{features: features}) when not is_nil(features) do
+    features
+  end
+
   def get_features(%__MODULE__{features_provider: provider}) do
     provider.()
   end

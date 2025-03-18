@@ -403,6 +403,8 @@ defmodule GrowthBook do
     %Context{
       attributes: attributes,
       features_provider: features_provider,
+      # Set to nil since we're using features_provider
+      features: nil,
       enabled?: true,
       url: nil,
       qa_mode?: false,
