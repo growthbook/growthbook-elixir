@@ -28,7 +28,13 @@ defmodule GrowthBook.FeatureRepository do
   end
 
   def await_initialization(pid, timeout) do
-    GenServer.call(pid, :await_initialization, timeout)
+    try do
+      GenServer.call(pid, :await_initialization, timeout)
+    catch
+      :exit, {:timeout, _} ->
+        # Properly handle timeout
+        {:error, :timeout}
+    end
   end
 
   @impl true
@@ -201,8 +207,10 @@ defmodule GrowthBook.FeatureRepository do
 
     Logger.debug("Requesting features from #{url}")
 
+    http_client = Application.get_env(:growthbook, :http_client, HTTPoison)
+
     try do
-      case HTTPoison.get(url) do
+      case http_client.get(url) do
         {:ok, %HTTPoison.Response{status_code: 200, body: body}} ->
           parsed = Jason.decode!(body)
 
