@@ -28,7 +28,7 @@ defmodule GrowthBook.Context do
           enabled?: boolean(),
           attributes: attributes() | nil,
           url: String.t() | nil,
-          features_provider: (-> map()),
+          features_provider: features_provider(),
           forced_variations: forced_variations(),
           qa_mode?: boolean()
         }
@@ -75,9 +75,7 @@ defmodule GrowthBook.Context do
   @type forced_variations() :: %{GrowthBook.feature_key() => integer()}
 
   @typedoc """
-  Features Provider
-
-  A function that returns a map of `%Feature{}` structs. Keys are string ids for the features.
+  Function that returns the latest features - a map of `%Feature{}` structs. Keys are string ids for the features.
   The function will be called each time features are needed, ensuring the latest features are used.
 
   The returned map should be in this format:
@@ -100,13 +98,19 @@ defmodule GrowthBook.Context do
   @type features_provider() :: (-> %{GrowthBook.feature_key() => Feature.t()})
 
   defstruct attributes: %{},
-            features_provider: fn -> %{} end,
+            features_provider: &GrowthBook.Context.default_features/0,
             enabled?: true,
             url: nil,
             qa_mode?: false,
             forced_variations: %{}
 
   @doc false
+  def default_features(), do: %{}
+
+  @doc """
+  Gets the latest features from the provider function
+  """
+  @spec get_features(t()) :: %{GrowthBook.feature_key() => Feature.t()}
   def get_features(%__MODULE__{features_provider: provider}) do
     provider.()
   end
