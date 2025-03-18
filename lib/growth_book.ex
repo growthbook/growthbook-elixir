@@ -411,4 +411,24 @@ defmodule GrowthBook do
       forced_variations: %{}
     }
   end
+
+  @doc """
+  Get a feature's value with a default fallback
+
+  This is a convenience function that calls `GrowthBook.feature/2` and returns the value,
+  or the provided default if the feature isn't found or its value is nil.
+
+  ## Examples
+
+      iex> GrowthBook.feature_value(context, "my-feature", false)
+      true
+
+      iex> GrowthBook.feature_value(context, "unknown-feature", "default")
+      "default"
+  """
+  @spec feature_value(Context.t(), feature_key(), term()) :: term()
+  def feature_value(%Context{} = context, feature_id, default) do
+    result = feature(context, feature_id)
+    if is_nil(result.value), do: default, else: result.value
+  end
 end
