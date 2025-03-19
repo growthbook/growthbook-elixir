@@ -118,8 +118,14 @@ defmodule GrowthBook.InitTest do
       # Restore the original function
       TestHelpers.unpatch_decrypt()
 
-      assert features["feature-1"]["defaultValue"] == "decrypted-value"
-      assert features["secret-feature"]["defaultValue"] == true
+      # Features are returned as Feature structs, not maps
+      feature1 = Map.get(features, "feature-1")
+      secret_feature = Map.get(features, "secret-feature")
+
+      assert feature1 != nil
+      assert secret_feature != nil
+      assert feature1.default_value == "decrypted-value"
+      assert secret_feature.default_value == true
     end
 
     test "returns error on initialization failure" do
