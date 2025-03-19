@@ -12,7 +12,7 @@ jobs:
       - name: Set up Elixir
         uses: erlef/setup-beam@v1
         with:
-          otp-version: '24.0'
+          otp-version: '24'
           elixir-version: '1.13.2'
 
       - name: Check formatting
@@ -27,11 +27,11 @@ jobs:
       - name: Set up Elixir
         uses: erlef/setup-beam@v1
         with:
-          otp-version: '24.0'
+          otp-version: '24'
           elixir-version: '1.13.2'
 
       - name: Retrieve cached mix deps
-        uses: actions/cache@v2
+        uses: actions/cache@v4
         with:
           path: deps
           key: ${{ runner.os }}-${{ matrix.otp }}-${{ matrix.elixir }}-mix-${{ hashFiles(format('{0}{1}', github.workspace, '/mix.lock')) }}
@@ -39,7 +39,7 @@ jobs:
             ${{ runner.os }}-${{ matrix.otp }}-${{ matrix.elixir }}-mix-
 
       - name: Retrieve cached _build
-        uses: actions/cache@v2
+        uses: actions/cache@v4
         with:
           path: _build
           key: ${{ runner.os }}-${{ matrix.otp }}-${{ matrix.elixir }}-build-${{ github.sha }}
@@ -47,7 +47,7 @@ jobs:
             ${{ runner.os }}-${{ matrix.otp }}-${{ matrix.elixir }}-build-
 
       - name: Retrieve cached PLT
-        uses: actions/cache@v2
+        uses: actions/cache@v4
         with:
           path: .dialyzer
           key: ${{ runner.os }}-${{ matrix.otp }}-${{ matrix.elixir }}-dialyzer-${{ hashFiles('**/mix.lock') }}-${{ hashFiles('**/lib/*.ex') }}
@@ -77,9 +77,9 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - otp: '24.0'
+          - otp: '24'
             elixir: '1.15.7'
-          - otp: '25.0'
+          - otp: '25'
             elixir: '1.15.7'
 
     steps:
