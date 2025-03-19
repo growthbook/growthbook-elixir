@@ -74,15 +74,18 @@ context = GrowthBook.build_context(
 
 # Approach 2: Auto-refreshing Features
 case GrowthBook.init(
-  client_key: "key_123",
-  api_host: "https://cdn.growthbook.io"
+  client_key: "key_prod_123...",
+  api_host: "https://cdn.growthbook.io",
+  decryption_key: "key_123...",
+  swr_ttl_seconds: 60,
+  on_refresh: fn features ->
+    Logger.info("Features refreshed: #{map_size(features)} available")
+    MyApp.FeatureNotifier.features_updated(features)
+  end
 ) do
-  {:ok, :initialized} ->
-    Logger.info("GrowthBook ready to use")
+  {:ok, :initialized} -> # Features loaded successfully
     # Start using GrowthBook...
-    
-  {:error, reason} ->
-    Logger.error("Failed to initialize GrowthBook: #{reason}")
+  {:error, reason} -> # Handle error
     # Handle initialization failure...
 end
 
@@ -117,21 +120,31 @@ end
 
 ## Auto-Refresh Features
 
-GrowthBook now supports automatic feature refreshing from your GrowthBook API. Instead of manually managing features, you can initialize GrowthBook with your API credentials:
+GrowthBook now supports automatic feature refreshing from your GrowthBook API. Instead of manually managing features, you can initialize GrowthBook with your API credentials.
+
+### Core Components
+
+1. GenServer-Based Repository: Implemented as a GenServer that maintains feature state in memory (with stale-while-revalidate (SWR) caching strategy) that handles fetching, caching of features and refresh cycles based on configuration.
 
 ```elixir
 # Initialize GrowthBook with auto-refresh
-GrowthBook.init(
+case GrowthBook.init(
   client_key: "key_prod_123...",
   api_host: "https://cdn.growthbook.io",
   decryption_key: "key_123...",  # Optional: Required for encrypted features
   swr_ttl_seconds: 60,  # Optional: Default is 60 seconds
+  refresh_strategy: :periodic,  # Optional: :periodic (default) or :manual
   on_refresh: fn features ->  # Optional: Callback when features are refreshed
     Logger.info("Features refreshed: #{map_size(features)} available")
     # Notify your application about new features
     MyApp.FeatureNotifier.features_updated(features)
   end
-)
+) do
+  {:ok, :initialized} -> # Features loaded successfully
+    # Start using GrowthBook...
+  {:error, reason} -> # Handle error
+    # Handle initialization failure...
+end
 
 # Create context that automatically uses latest features
 context = GrowthBook.build_context(%{
@@ -144,6 +157,55 @@ context = GrowthBook.build_context(%{
 # All feature evaluations will use the latest features
 if GrowthBook.feature(context, "send-reminder").on? do
   Logger.info("Sending reminder")
+end
+```
+
+### Refresh Strategies
+
+The SDK supports two refresh strategies:
+
+- `:periodic` (default): Features are automatically refreshed in the background based on the TTL.
+- `:manual`: Features are only refreshed when explicitly called with `GrowthBook.FeatureRepository.refresh()`.
+
+### Shutting Down
+
+When your application is shutting down or you no longer need the feature repository, stop it properly to release resources:
+
+```elixir
+# Stops the FeatureRepository GenServer
+GenServer.stop(GrowthBook.FeatureRepository)
+```
+
+### Supervision
+
+Since the FeatureRepository is a GenServer, it's recommended to add it to your application's supervision tree for proper lifecycle management:
+
+```elixir
+# In your application.ex
+def start(_type, _args) do
+  children = [
+    # Other children...
+    
+    # Add GrowthBook FeatureRepository to supervision tree
+    {GrowthBook.FeatureRepository, 
+      client_key: "key_prod_123...",
+      api_host: "https://cdn.growthbook.io",
+      # Add other options as needed
+    }
+  ]
+
+  opts = [strategy: :one_for_one, name: MyApp.Supervisor]
+  Supervisor.start_link(children, opts)
+  
+  # Then initialize GrowthBook
+  case GrowthBook.FeatureRepository.await_initialization(GrowthBook.FeatureRepository, 5000) do
+    :ok -> 
+      Logger.info("GrowthBook features initialized successfully")
+    {:error, reason} -> 
+      Logger.error("Failed to initialize GrowthBook features: #{reason}")
+  end
+  
+  {:ok, self()}
 end
 ```
 
