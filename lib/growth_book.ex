@@ -61,6 +61,8 @@ defmodule GrowthBook do
   """
   @type namespace() :: {String.t(), float(), float()}
 
+  @type init_result :: {:ok, :initialized} | {:error, String.t()}
+
   @doc false
   @spec get_feature_result(
           term(),
@@ -141,13 +143,13 @@ defmodule GrowthBook do
   """
   @spec feature(Context.t(), feature_key(), [feature_key()]) :: FeatureResult.t()
 
-  def feature(context, feature_id, path \\ [])
+  def feature(%Context{} = context, feature_id, path \\ []) do
+    features = Context.get_features(context)
 
-  def feature(%Context{features: features} = context, feature_id, path) do
     case Map.get(features, feature_id) do
       nil ->
         Logger.debug(
-          "No feature with id: #{feature_id}, known features are: #{inspect(Map.keys(context.features))}"
+          "No feature with id: #{feature_id}, known features are: #{inspect(Map.keys(features))}"
         )
 
         get_feature_result(nil, :unknown_feature)
@@ -336,5 +338,97 @@ defmodule GrowthBook do
       {_, nil} -> {:error, "empty fallback attribute value"}
       {attr, val} -> {:ok, attr, val}
     end
+  end
+
+  @doc """
+  Initialize GrowthBook with the feature repository configuration.
+  Returns {:ok, :initialized} if initialization succeeds with features loaded, {:error, reason} otherwise.
+
+  ## Options
+    * `:client_key` - Required. The API client key
+    * `:api_host` - Required. The GrowthBook API host
+    * `:decryption_key` - Optional. Key for decrypting feature payloads
+    * `:swr_ttl_seconds` - Optional. Cache TTL in seconds (default: 60)
+    * `:refresh_strategy` - Optional. Either :periodic or :manual (default: :periodic)
+    * `:on_refresh` - Optional. Function to call when features are refreshed
+    * `:initialization_timeout` - Optional. Timeout in ms for initial feature fetch (default: 5000)
+  """
+  @spec init(Keyword.t()) :: init_result()
+  def init(opts) do
+    # Validate required options
+    unless opts[:client_key] && opts[:api_host] do
+      raise ArgumentError, "client_key and api_host are required"
+    end
+
+    # Validate callback if provided
+    if opts[:on_refresh] && !is_function(opts[:on_refresh], 1) do
+      raise ArgumentError, "on_refresh must be a function that accepts one argument"
+    end
+
+    case GrowthBook.FeatureRepository.start_link(opts) do
+      {:ok, pid} ->
+        # Wait for initial feature fetch
+        timeout = opts[:initialization_timeout] || 5000
+
+        case GrowthBook.FeatureRepository.await_initialization(pid, timeout) do
+          :ok ->
+            {:ok, :initialized}
+
+          {:error, :timeout} ->
+            GenServer.stop(pid)
+            {:error, "initialization timed out after #{timeout}ms"}
+
+          {:error, reason} ->
+            GenServer.stop(pid)
+            {:error, "initialization failed: #{reason}"}
+        end
+
+      {:error, reason} ->
+        {:error, "failed to start feature repository: #{inspect(reason)}"}
+    end
+  end
+
+  @doc """
+  Build a context with the given attributes and features.
+  If features are not provided, it will use the FeatureRepository to always get the latest features.
+  """
+  @spec build_context(map(), map() | nil) :: Context.t()
+  def build_context(attributes, features \\ nil) do
+    features_provider =
+      case features do
+        nil -> &GrowthBook.FeatureRepository.get_latest_features/0
+        features -> fn -> features end
+      end
+
+    %Context{
+      attributes: attributes,
+      features_provider: features_provider,
+      # Set to nil since we're using features_provider
+      features: nil,
+      enabled?: true,
+      url: nil,
+      qa_mode?: false,
+      forced_variations: %{}
+    }
+  end
+
+  @doc """
+  Get a feature's value with a default fallback
+
+  This is a convenience function that calls `GrowthBook.feature/2` and returns the value,
+  or the provided default if the feature isn't found or its value is nil.
+
+  ## Examples
+
+      iex> GrowthBook.feature_value(context, "my-feature", false)
+      true
+
+      iex> GrowthBook.feature_value(context, "unknown-feature", "default")
+      "default"
+  """
+  @spec feature_value(Context.t(), feature_key(), term()) :: term()
+  def feature_value(%Context{} = context, feature_id, default) do
+    result = feature(context, feature_id)
+    if is_nil(result.value), do: default, else: result.value
   end
 end

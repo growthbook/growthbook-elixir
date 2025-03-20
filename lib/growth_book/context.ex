@@ -18,7 +18,7 @@ defmodule GrowthBook.Context do
   - **`attributes`** (`t:attributes/0`) - Map of user attributes that are used
     to assign variations
   - **`url`** (`t:String.t/0`) - The URL of the current page
-  - **`features`** (`t:features/0`) - Feature definitions (usually pulled from an API or cache)
+  - **`features_provider`** (`t:features_provider/0`) - Function that returns latest features
   - **`forced_variations`** (`t:forced_variations/0`) - Force specific experiments to always assign
     a specific variation (used for QA)
   - **`qa_mode?`** (`t:boolean/0`) - If `true`, random assignment is disabled and only explicitly
@@ -28,7 +28,8 @@ defmodule GrowthBook.Context do
           enabled?: boolean(),
           attributes: attributes() | nil,
           url: String.t() | nil,
-          features: features(),
+          features_provider: features_provider(),
+          features: %{GrowthBook.feature_key() => Feature.t()} | nil,
           forced_variations: forced_variations(),
           qa_mode?: boolean()
         }
@@ -58,29 +59,6 @@ defmodule GrowthBook.Context do
   @type attributes() :: %{String.t() => term()}
 
   @typedoc """
-  Features
-
-  A map of `%Feature{}` structs. Keys are string ids for the features.
-
-  ```
-  %{
-    "feature-1" => %Feature{
-      default_value: false
-    },
-    "my_other_feature" => %Feature{
-      default_value: 1,
-      rules: [
-        %FeatureRule{
-          force: 2
-        }
-      ]
-    }
-  }
-  ```
-  """
-  @type features() :: %{GrowthBook.feature_key() => Feature.t()}
-
-  @typedoc """
   Forced variations map
 
   A hash or map that forces an `GrowthBook.Experiment` to always assign a specific variation.
@@ -97,10 +75,49 @@ defmodule GrowthBook.Context do
   """
   @type forced_variations() :: %{GrowthBook.feature_key() => integer()}
 
+  @typedoc """
+  Function that returns the latest features - a map of `%Feature{}` structs. Keys are string ids for the features.
+  The function will be called each time features are needed, ensuring the latest features are used.
+
+  The returned map should be in this format:
+  ```
+  %{
+    "feature-1" => %Feature{
+      default_value: false
+    },
+    "my_other_feature" => %Feature{
+      default_value: 1,
+      rules: [
+        %FeatureRule{
+          force: 2
+        }
+      ]
+    }
+  }
+  ```
+  """
+  @type features_provider() :: (-> %{GrowthBook.feature_key() => Feature.t()})
+
   defstruct attributes: %{},
-            features: %{},
-            forced_variations: %{},
-            url: nil,
+            features_provider: &GrowthBook.Context.default_features/0,
+            features: nil,
             enabled?: true,
-            qa_mode?: false
+            url: nil,
+            qa_mode?: false,
+            forced_variations: %{}
+
+  @doc false
+  def default_features(), do: %{}
+
+  @doc """
+  Gets the latest features from the provider function
+  """
+  @spec get_features(t()) :: %{GrowthBook.feature_key() => Feature.t()}
+  def get_features(%__MODULE__{features: features}) when not is_nil(features) do
+    features
+  end
+
+  def get_features(%__MODULE__{features_provider: provider}) do
+    provider.()
+  end
 end

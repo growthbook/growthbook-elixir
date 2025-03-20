@@ -7,7 +7,6 @@ defmodule GrowthBook.Config do
   """
 
   alias GrowthBook.{
-    Context,
     Feature,
     FeatureRule,
     Experiment,
@@ -28,7 +27,7 @@ defmodule GrowthBook.Config do
   Use this function to take the configuration retrieved from the `/features` API endpoint and
   convert it into a usable map of `GrowthBook.Feature` structs.
   """
-  @spec features_from_config(json_map()) :: Context.features()
+  @spec features_from_config(json_map()) :: %{GrowthBook.feature_key() => Feature.t()}
   def features_from_config(%{"features" => features_config}) when is_map(features_config) do
     Map.new(features_config, fn {feature_key, feature_config} ->
       rules = feature_config |> Map.get("rules") |> feature_rules_from_config(feature_key)
