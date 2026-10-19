@@ -127,6 +127,8 @@ defmodule GrowthBook.Config do
       condition: Map.get(experiment_config, "condition"),
       coverage: experiment_config |> Map.get("coverage") |> ensure_float(),
       hash_attribute: Map.get(experiment_config, "hashAttribute"),
+      hash_version: Map.get(experiment_config, "hashVersion") || 1,
+      seed: Map.get(experiment_config, "seed"),
       force: Map.get(experiment_config, "force"),
       weights: Map.get(experiment_config, "weights"),
       ranges: ranges,
