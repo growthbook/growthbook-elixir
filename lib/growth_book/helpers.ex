@@ -49,7 +49,7 @@ defmodule GrowthBook.Helpers do
         false
 
       _ ->
-        n = Hash.hash(seed, hash_value, hash_version || 1)
+        n = Hash.hash(seed, hash_value, hash_version(hash_version))
 
         case {range, coverage} do
           {nil, coverage} -> n < coverage
@@ -65,6 +65,10 @@ defmodule GrowthBook.Helpers do
   def coalesce([nil | next]), do: coalesce(next)
   def coalesce(["" | next]), do: coalesce(next)
   def coalesce([v | _]), do: v
+
+  @spec hash_version(integer() | nil) :: integer()
+  def hash_version(v) when v in [nil, 0], do: 1
+  def hash_version(v), do: v
 
   @doc """
   Returns an list of floats with `count` items that are all equal and sum to 1.
