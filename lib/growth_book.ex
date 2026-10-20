@@ -266,7 +266,13 @@ defmodule GrowthBook do
         exp.ranges ||
           Helpers.get_bucket_ranges(variations_count, exp.coverage || 1.0, exp.weights || [])
 
-      hash = Hash.hash(exp.seed || exp.key, hash_value, exp.hash_version || 1)
+      hash =
+        Hash.hash(
+          Helpers.coalesce(exp.seed, exp.key),
+          hash_value,
+          Helpers.hash_version(exp.hash_version)
+        )
+
       variation_id = Helpers.choose_variation(hash, bucket_ranges)
 
       cond do

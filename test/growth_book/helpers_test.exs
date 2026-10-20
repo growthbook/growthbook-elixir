@@ -28,4 +28,25 @@ defmodule GrowthBook.HelpersTest do
       assert Helpers.cast_boolish({1, 2, 3})
     end
   end
+
+  describe "missing seed and hashVersion" do
+    defp assignments(experiment_config) do
+      experiment =
+        Map.merge(%{"key" => "my-test", "variations" => [0, 1]}, experiment_config)
+        |> GrowthBook.Config.experiment_from_config()
+
+      for id <- 1..50 do
+        context = %GrowthBook.Context{attributes: %{"id" => to_string(id)}}
+        GrowthBook.run(context, experiment).variation_id
+      end
+    end
+
+    test "empty seed falls back to the experiment key" do
+      assert assignments(%{"seed" => ""}) == assignments(%{})
+    end
+
+    test "hashVersion 0 falls back to version 1" do
+      assert assignments(%{"hashVersion" => 0}) == assignments(%{})
+    end
+  end
 end
