@@ -1,0 +1,907 @@
+[
+ [
+  "string condition vs integer attribute",
+  {
+   "x": "10"
+  },
+  {
+   "x": 10
+  },
+  true
+ ],
+ [
+  "string condition vs float attribute",
+  {
+   "x": "1.5"
+  },
+  {
+   "x": 1.5
+  },
+  true
+ ],
+ [
+  "string condition vs integral float attribute",
+  {
+   "x": "1"
+  },
+  {
+   "x": 1
+  },
+  true
+ ],
+ [
+  "string condition vs large float attribute",
+  {
+   "x": "1e+21"
+  },
+  {
+   "x": 1e+21
+  },
+  true
+ ],
+ [
+  "string condition vs small float attribute",
+  {
+   "x": "1e-7"
+  },
+  {
+   "x": 1e-7
+  },
+  true
+ ],
+ [
+  "string condition vs 0.0001 attribute",
+  {
+   "x": "0.0001"
+  },
+  {
+   "x": 0.0001
+  },
+  true
+ ],
+ [
+  "string condition vs negative float attribute",
+  {
+   "x": "-2.5"
+  },
+  {
+   "x": -2.5
+  },
+  true
+ ],
+ [
+  "string condition vs true attribute",
+  {
+   "x": "true"
+  },
+  {
+   "x": true
+  },
+  true
+ ],
+ [
+  "string condition vs false attribute",
+  {
+   "x": "false"
+  },
+  {
+   "x": false
+  },
+  true
+ ],
+ [
+  "string null vs null attribute",
+  {
+   "x": "null"
+  },
+  {
+   "x": null
+  },
+  true
+ ],
+ [
+  "string null vs missing attribute",
+  {
+   "x": "null"
+  },
+  {},
+  true
+ ],
+ [
+  "empty string vs missing attribute",
+  {
+   "x": ""
+  },
+  {},
+  false
+ ],
+ [
+  "empty string vs null attribute",
+  {
+   "x": ""
+  },
+  {
+   "x": null
+  },
+  false
+ ],
+ [
+  "string condition vs array attribute",
+  {
+   "x": "a,b"
+  },
+  {
+   "x": [
+    "a",
+    "b"
+   ]
+  },
+  true
+ ],
+ [
+  "string condition vs array with null",
+  {
+   "x": "a,,b"
+  },
+  {
+   "x": [
+    "a",
+    null,
+    "b"
+   ]
+  },
+  true
+ ],
+ [
+  "string condition vs object attribute",
+  {
+   "x": "[object Object]"
+  },
+  {
+   "x": {
+    "a": 1
+   }
+  },
+  true
+ ],
+ [
+  "number condition vs numeric string",
+  {
+   "x": 10
+  },
+  {
+   "x": "10"
+  },
+  true
+ ],
+ [
+  "number condition vs padded numeric string",
+  {
+   "x": 10
+  },
+  {
+   "x": " 10 "
+  },
+  true
+ ],
+ [
+  "number condition vs exponent string",
+  {
+   "x": 100
+  },
+  {
+   "x": "1e2"
+  },
+  true
+ ],
+ [
+  "number condition vs hex string",
+  {
+   "x": 255
+  },
+  {
+   "x": "0xff"
+  },
+  true
+ ],
+ [
+  "number condition vs decimal string",
+  {
+   "x": 0.5
+  },
+  {
+   "x": ".5"
+  },
+  true
+ ],
+ [
+  "number condition vs trailing garbage",
+  {
+   "x": 1.5
+  },
+  {
+   "x": "1.5abc"
+  },
+  false
+ ],
+ [
+  "number condition vs bare exponent",
+  {
+   "x": 0
+  },
+  {
+   "x": "e5"
+  },
+  false
+ ],
+ [
+  "number condition vs bare dot",
+  {
+   "x": 0
+  },
+  {
+   "x": "."
+  },
+  false
+ ],
+ [
+  "zero condition vs empty string",
+  {
+   "x": 0
+  },
+  {
+   "x": ""
+  },
+  true
+ ],
+ [
+  "number condition vs non-numeric string",
+  {
+   "x": 0
+  },
+  {
+   "x": "abc"
+  },
+  false
+ ],
+ [
+  "one condition vs true",
+  {
+   "x": 1
+  },
+  {
+   "x": true
+  },
+  true
+ ],
+ [
+  "zero condition vs false",
+  {
+   "x": 0
+  },
+  {
+   "x": false
+  },
+  true
+ ],
+ [
+  "zero condition vs null",
+  {
+   "x": 0
+  },
+  {
+   "x": null
+  },
+  true
+ ],
+ [
+  "zero condition vs missing",
+  {
+   "x": 0
+  },
+  {},
+  true
+ ],
+ [
+  "one condition vs missing",
+  {
+   "x": 1
+  },
+  {},
+  false
+ ],
+ [
+  "integer condition vs float attribute",
+  {
+   "x": 1
+  },
+  {
+   "x": 1
+  },
+  true
+ ],
+ [
+  "float condition vs integer attribute",
+  {
+   "x": 2
+  },
+  {
+   "x": 2
+  },
+  true
+ ],
+ [
+  "number condition vs single element array",
+  {
+   "x": 1
+  },
+  {
+   "x": [
+    1
+   ]
+  },
+  true
+ ],
+ [
+  "number condition vs two element array",
+  {
+   "x": 1
+  },
+  {
+   "x": [
+    1,
+    2
+   ]
+  },
+  false
+ ],
+ [
+  "number condition vs object",
+  {
+   "x": 1
+  },
+  {
+   "x": {
+    "a": 1
+   }
+  },
+  false
+ ],
+ [
+  "false condition vs 'false'",
+  {
+   "x": false
+  },
+  {
+   "x": "false"
+  },
+  false
+ ],
+ [
+  "false condition vs 0",
+  {
+   "x": false
+  },
+  {
+   "x": 0
+  },
+  true
+ ],
+ [
+  "false condition vs empty string",
+  {
+   "x": false
+  },
+  {
+   "x": ""
+  },
+  true
+ ],
+ [
+  "false condition vs missing",
+  {
+   "x": false
+  },
+  {},
+  false
+ ],
+ [
+  "false condition vs null",
+  {
+   "x": false
+  },
+  {
+   "x": null
+  },
+  false
+ ],
+ [
+  "true condition vs missing",
+  {
+   "x": true
+  },
+  {},
+  false
+ ],
+ [
+  "true condition vs null",
+  {
+   "x": true
+  },
+  {
+   "x": null
+  },
+  false
+ ],
+ [
+  "true condition vs 'off'",
+  {
+   "x": true
+  },
+  {
+   "x": "off"
+  },
+  true
+ ],
+ [
+  "true condition vs '0'",
+  {
+   "x": true
+  },
+  {
+   "x": "0"
+  },
+  true
+ ],
+ [
+  "true condition vs empty array",
+  {
+   "x": true
+  },
+  {
+   "x": []
+  },
+  true
+ ],
+ [
+  "true condition vs empty object",
+  {
+   "x": true
+  },
+  {
+   "x": {}
+  },
+  true
+ ],
+ [
+  "true condition vs 0.0",
+  {
+   "x": true
+  },
+  {
+   "x": 0
+  },
+  false
+ ],
+ [
+  "null condition vs missing",
+  {
+   "x": null
+  },
+  {},
+  true
+ ],
+ [
+  "null condition vs null",
+  {
+   "x": null
+  },
+  {
+   "x": null
+  },
+  true
+ ],
+ [
+  "null condition vs 0",
+  {
+   "x": null
+  },
+  {
+   "x": 0
+  },
+  false
+ ],
+ [
+  "$regex missing attribute",
+  {
+   "x": {
+    "$regex": "^null$"
+   }
+  },
+  {},
+  true
+ ],
+ [
+  "$regex null attribute",
+  {
+   "x": {
+    "$regex": "^null$"
+   }
+  },
+  {
+   "x": null
+  },
+  true
+ ],
+ [
+  "$regex integer attribute",
+  {
+   "x": {
+    "$regex": "^10$"
+   }
+  },
+  {
+   "x": 10
+  },
+  true
+ ],
+ [
+  "$regex float attribute",
+  {
+   "x": {
+    "$regex": "^1\\.5$"
+   }
+  },
+  {
+   "x": 1.5
+  },
+  true
+ ],
+ [
+  "$regex boolean attribute",
+  {
+   "x": {
+    "$regex": "^true$"
+   }
+  },
+  {
+   "x": true
+  },
+  true
+ ],
+ [
+  "$regex array attribute",
+  {
+   "x": {
+    "$regex": "^a,b$"
+   }
+  },
+  {
+   "x": [
+    "a",
+    "b"
+   ]
+  },
+  true
+ ],
+ [
+  "$regex object attribute",
+  {
+   "x": {
+    "$regex": "object"
+   }
+  },
+  {
+   "x": {
+    "a": 1
+   }
+  },
+  true
+ ],
+ [
+  "$regex invalid pattern",
+  {
+   "x": {
+    "$regex": "("
+   }
+  },
+  {
+   "x": "a"
+  },
+  false
+ ],
+ [
+  "$regex non-string pattern",
+  {
+   "x": {
+    "$regex": 1
+   }
+  },
+  {
+   "x": "1"
+  },
+  false
+ ],
+ [
+  "$regexi matches case-insensitively",
+  {
+   "x": {
+    "$regexi": "^ABC$"
+   }
+  },
+  {
+   "x": "abc"
+  },
+  true
+ ],
+ [
+  "$regexi missing attribute",
+  {
+   "x": {
+    "$regexi": "^NULL$"
+   }
+  },
+  {},
+  true
+ ],
+ [
+  "$regexi invalid pattern",
+  {
+   "x": {
+    "$regexi": "("
+   }
+  },
+  {
+   "x": "a"
+  },
+  false
+ ],
+ [
+  "$regex stays case-sensitive",
+  {
+   "x": {
+    "$regex": "^ABC$"
+   }
+  },
+  {
+   "x": "abc"
+  },
+  false
+ ],
+ [
+  "$veq missing attribute is 0",
+  {
+   "x": {
+    "$veq": "0"
+   }
+  },
+  {},
+  true
+ ],
+ [
+  "$vlt missing attribute",
+  {
+   "x": {
+    "$vlt": "1.0.0"
+   }
+  },
+  {},
+  true
+ ],
+ [
+  "$vgt integer attribute",
+  {
+   "x": {
+    "$vgt": "1.0.0"
+   }
+  },
+  {
+   "x": 2
+  },
+  true
+ ],
+ [
+  "$veq float attribute",
+  {
+   "x": {
+    "$veq": "1.5"
+   }
+  },
+  {
+   "x": 1.5
+  },
+  true
+ ],
+ [
+  "$veq numeric condition",
+  {
+   "x": {
+    "$veq": 2
+   }
+  },
+  {
+   "x": 2
+  },
+  true
+ ],
+ [
+  "$veq boolean attribute is 0",
+  {
+   "x": {
+    "$veq": "0"
+   }
+  },
+  {
+   "x": true
+  },
+  true
+ ],
+ [
+  "$veq array attribute is 0",
+  {
+   "x": {
+    "$veq": "0"
+   }
+  },
+  {
+   "x": [
+    "1"
+   ]
+  },
+  true
+ ],
+ [
+  "$veq empty string is 0",
+  {
+   "x": {
+    "$veq": "0"
+   }
+  },
+  {
+   "x": ""
+  },
+  true
+ ],
+ [
+  "$veq lone v is empty",
+  {
+   "x": {
+    "$veq": ""
+   }
+  },
+  {
+   "x": "v"
+  },
+  false
+ ],
+ [
+  "$vlt compares joined strings",
+  {
+   "x": {
+    "$vlt": "1.0.0--"
+   }
+  },
+  {
+   "x": "1.0.0-9999"
+  },
+  true
+ ],
+ [
+  "$vgte object attribute is 0",
+  {
+   "x": {
+    "$vgte": "0"
+   }
+  },
+  {
+   "x": {
+    "a": 1
+   }
+  },
+  true
+ ],
+ [
+  "regex - number attribute is stringified",
+  {
+   "n": {
+    "$regex": "^12"
+   }
+  },
+  {
+   "n": 123
+  },
+  true
+ ],
+ [
+  "regex - missing attribute is the string null (js quirk)",
+  {
+   "s": {
+    "$regex": "^null$"
+   }
+  },
+  {},
+  true
+ ],
+ [
+  "equality - number condition coerces numeric string attribute",
+  {
+   "n": 10
+  },
+  {
+   "n": "10"
+  },
+  true
+ ],
+ [
+  "equality - string condition coerces number attribute",
+  {
+   "n": "10"
+  },
+  {
+   "n": 10
+  },
+  true
+ ],
+ [
+  "equality - number 0 condition vs null attribute (js quirk)",
+  {
+   "n": 0
+  },
+  {
+   "n": null
+  },
+  true
+ ],
+ [
+  "boolean condition - true vs string 'true'",
+  {
+   "b": true
+  },
+  {
+   "b": "true"
+  },
+  true
+ ],
+ [
+  "boolean condition - false vs string 'false' is truthy",
+  {
+   "b": false
+  },
+  {
+   "b": "false"
+  },
+  false
+ ],
+ [
+  "boolean condition - false vs number 0",
+  {
+   "b": false
+  },
+  {
+   "b": 0
+  },
+  true
+ ],
+ [
+  "boolean condition - false vs null attribute",
+  {
+   "b": false
+  },
+  {
+   "b": null
+  },
+  false
+ ],
+ [
+  "version - numeric attribute with decimals",
+  {
+   "v": {
+    "$vgt": "1.9"
+   }
+  },
+  {
+   "v": 1.1
+  },
+  false
+ ]
+]
