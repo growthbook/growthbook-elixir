@@ -104,7 +104,7 @@ defmodule GrowthBook.ConformanceTest do
     @describetag :eval_condition
 
     for {test_case, index} <- Enum.with_index(cases["evalCondition"]) do
-      [desc, condition, attributes, expected] = test_case
+      [desc, condition, attributes, expected | _] = test_case
 
       test "##{index}: #{desc}" do
         condition = unquote(Macro.escape(condition))
