@@ -8,7 +8,6 @@ defmodule GrowthBook.Condition do
   """
 
   alias GrowthBook.Context
-  alias GrowthBook.Helpers
 
   @typedoc """
   Condition
@@ -113,19 +112,13 @@ defmodule GrowthBook.Condition do
 
   @spec eval_condition_value(condition_value(), term()) :: boolean()
   defp eval_condition_value(condition, value) when is_binary(condition),
-    do: to_string(value) == condition
+    do: js_string(value) == condition
 
-  defp eval_condition_value(condition, value) when is_number(condition) and is_number(value),
-    do: value == condition
-
-  defp eval_condition_value(condition, value) when is_float(condition) and is_binary(value),
-    do: {condition, ""} == Float.parse(value)
-
-  defp eval_condition_value(condition, value) when is_integer(condition) and is_binary(value),
-    do: {condition, ""} == Integer.parse(value)
+  defp eval_condition_value(condition, value) when is_number(condition),
+    do: js_number(value) == condition
 
   defp eval_condition_value(condition, value) when is_boolean(condition),
-    do: Helpers.cast_boolish(value) == condition
+    do: value not in [nil, :undefined] and js_truthy?(value) == condition
 
   defp eval_condition_value(nil, value), do: value in [nil, :undefined]
 
@@ -196,6 +189,9 @@ defmodule GrowthBook.Condition do
     lversion = padded_version(left)
     rversion = padded_version(right)
 
+    lversion = Enum.join(lversion, "-")
+    rversion = Enum.join(rversion, "-")
+
     case op do
       "$veq" -> lversion == rversion
       "$vne" -> lversion != rversion
@@ -241,12 +237,8 @@ defmodule GrowthBook.Condition do
 
   defp eval_operator_condition("$all", _left, _right), do: false
 
-  defp eval_operator_condition("$regex", left, right) do
-    case Regex.compile(right) do
-      {:ok, regex} -> Regex.match?(regex, left)
-      {:error, _err} -> false
-    end
-  end
+  defp eval_operator_condition("$regex", left, right), do: regex_match?(left, right, "")
+  defp eval_operator_condition("$regexi", left, right), do: regex_match?(left, right, "i")
 
   defp eval_operator_condition("$type", left, right), do: get_type(left) == right
 
@@ -255,6 +247,16 @@ defmodule GrowthBook.Condition do
 
     false
   end
+
+  @spec regex_match?(term(), term(), String.t()) :: boolean()
+  defp regex_match?(left, right, options) when is_binary(right) do
+    case Regex.compile(right, options) do
+      {:ok, regex} -> Regex.match?(regex, js_string(left))
+      {:error, _err} -> false
+    end
+  end
+
+  defp regex_match?(_left, _right, _options), do: false
 
   @spec elem_match(term(), term()) :: boolean()
   defp elem_match(left, right) when is_list(left) do
@@ -328,12 +330,14 @@ defmodule GrowthBook.Condition do
   def get_type(_attribute_value), do: "unknown"
 
   @doc false
-  @spec padded_version(String.t()) :: [String.t()]
-  def padded_version("v" <> s), do: padded_version(s)
+  @spec padded_version(term()) :: [String.t()]
+  def padded_version(n) when is_number(n), do: padded_version(js_string(n))
 
-  def padded_version(s) when is_binary(s) do
+  def padded_version(s) when is_binary(s) and s != "" do
     parts =
-      String.split(s, "+")
+      s
+      |> String.replace(~r/^v/, "")
+      |> String.split("+")
       |> hd()
       |> String.split([".", "-"])
       |> Enum.map(fn s ->
@@ -346,4 +350,127 @@ defmodule GrowthBook.Condition do
       do: parts ++ ["~"],
       else: parts
   end
+
+  def padded_version(_other), do: padded_version("0")
+
+  # Converts a value to a string the way JavaScript's `String(value)` does.
+  # A missing attribute is `null` in the JS SDK, so `:undefined` converts to "null" too.
+  @doc false
+  @spec js_string(term()) :: String.t()
+  def js_string(value) when is_binary(value), do: value
+  def js_string(value) when value in [nil, :undefined], do: "null"
+  def js_string(value) when is_boolean(value), do: to_string(value)
+  def js_string(value) when is_integer(value), do: Integer.to_string(value)
+  def js_string(value) when is_float(value), do: js_float_string(value)
+  def js_string(value) when is_map(value), do: "[object Object]"
+
+  def js_string(value) when is_list(value) do
+    Enum.map_join(value, ",", fn
+      element when element in [nil, :undefined] -> ""
+      element -> js_string(element)
+    end)
+  end
+
+  def js_string(value), do: to_string(value)
+
+  # ECMAScript Number::toString, using Elixir's shortest round-trip digits
+  defp js_float_string(value) when value == 0, do: "0"
+  defp js_float_string(value) when value < 0, do: "-" <> js_float_string(-value)
+
+  defp js_float_string(value) do
+    {mantissa, exponent} =
+      case String.split(Float.to_string(value), "e") do
+        [mantissa, exponent] -> {mantissa, String.to_integer(exponent)}
+        [mantissa] -> {mantissa, 0}
+      end
+
+    [int, frac] = String.split(mantissa, ".")
+    all_digits = int <> frac
+    digits = String.trim_leading(all_digits, "0")
+    n = String.length(int) + exponent - (String.length(all_digits) - String.length(digits))
+    digits = String.trim_trailing(digits, "0")
+    k = String.length(digits)
+
+    cond do
+      k <= n and n <= 21 ->
+        digits <> String.duplicate("0", n - k)
+
+      0 < n and n <= 21 ->
+        String.slice(digits, 0, n) <> "." <> String.slice(digits, n..-1//1)
+
+      -6 < n and n <= 0 ->
+        "0." <> String.duplicate("0", -n) <> digits
+
+      true ->
+        sign = if n - 1 < 0, do: "-", else: "+"
+        exponent = "e" <> sign <> Integer.to_string(abs(n - 1))
+
+        case digits do
+          <<first::binary-size(1)>> -> first <> exponent
+          <<first::binary-size(1), rest::binary>> -> first <> "." <> rest <> exponent
+        end
+    end
+  end
+
+  # Converts a value to a number the way JavaScript's `value * 1` does; returns `:nan` for NaN.
+  @doc false
+  @spec js_number(term()) :: number() | :nan
+  def js_number(value) when is_number(value), do: value
+  def js_number(value) when value in [nil, :undefined, false], do: 0
+  def js_number(true), do: 1
+  def js_number(value) when is_list(value), do: js_number(js_string(value))
+
+  def js_number(value) when is_binary(value) do
+    value = String.trim(value)
+
+    cond do
+      value == "" ->
+        0
+
+      match = Regex.run(~r/^0([xob])([0-9a-f]+)$/i, value) ->
+        [_, base, digits] = match
+        base = %{"x" => 16, "o" => 8, "b" => 2}[String.downcase(base)]
+
+        case Integer.parse(digits, base) do
+          {number, ""} -> number
+          _invalid -> :nan
+        end
+
+      match = Regex.run(~r/^([+-]?)(\d*)(?:\.(\d*))?(?:e([+-]?\d+))?$/i, value) ->
+        parse_js_decimal(match)
+
+      true ->
+        :nan
+    end
+  end
+
+  def js_number(_value), do: :nan
+
+  defp parse_js_decimal([_, _sign, ""]), do: :nan
+  defp parse_js_decimal([_, _sign, "", "" | _exponent]), do: :nan
+
+  defp parse_js_decimal([_, sign, int | rest]) do
+    {frac, exponent} =
+      case rest do
+        [] -> {"", ""}
+        [frac] -> {frac, ""}
+        [frac, exponent] -> {frac, exponent}
+      end
+
+    int = if int == "", do: "0", else: int
+    frac = if frac == "", do: "0", else: frac
+    exponent = if exponent == "", do: "0", else: exponent
+
+    case Float.parse(sign <> int <> "." <> frac <> "e" <> exponent) do
+      {number, ""} -> number
+      _invalid -> :nan
+    end
+  rescue
+    ArgumentError -> :nan
+  end
+
+  # JavaScript truthiness
+  defp js_truthy?(value) when value in [nil, :undefined, false, ""], do: false
+  defp js_truthy?(value) when is_number(value), do: value != 0
+  defp js_truthy?(_value), do: true
 end
