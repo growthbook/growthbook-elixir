@@ -36,6 +36,10 @@ defmodule GrowthBook.Helpers do
           boolean()
   def included_in_rollout?(_attributes, _seed, _hash_attribute, nil, nil, _hash_version), do: true
 
+  def included_in_rollout?(_attributes, _seed, _hash_attribute, nil, coverage, _hash_version)
+      when coverage == 0,
+      do: false
+
   def included_in_rollout?(attributes, seed, hash_attribute, range, coverage, hash_version) do
     hash_attribute = coalesce(hash_attribute, "id")
     hash_value = attributes[hash_attribute] || ""

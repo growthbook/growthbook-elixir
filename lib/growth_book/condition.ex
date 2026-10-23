@@ -8,7 +8,6 @@ defmodule GrowthBook.Condition do
   """
 
   alias GrowthBook.Context
-  alias GrowthBook.Helpers
 
   @typedoc """
   Condition
@@ -42,6 +41,10 @@ defmodule GrowthBook.Condition do
 
   Conditions are MongoDB-query-like expressions.
 
+  Types are strict: when the attribute's type differs from the condition's type, a
+  positive operator fails and its negation matches. `"10"` does not equal `10`, booleans
+  are not ordered, and version operators need two strings or two numbers.
+
   ## Available expressions:
 
   ### Expression groups
@@ -60,12 +63,15 @@ defmodule GrowthBook.Condition do
   - `$exists`: `(left in [nil, :undefined]) != right`
   - `$type`: `typeof left == right`
   - `$regex`: `right |> Regex.compile!() |> Regex.match?(left)`
+  - `$regexi`: like `$regex`, but case-insensitive
 
   ### Array expressions
   - `$in`: `left in right`
   - `$nin`: `left not in right`
+  - `$ini` / `$nini`: like `$in` / `$nin`, but case-insensitive
   - `$elemMatch`: performs the given condition(s) of left for each element of right (with support for expressions)
   - `$all`: performs the given condition(s) of left for each element of right (without support support for expressions)
+  - `$alli`: like `$all`, but case-insensitive
   - `$size`: `eval_contition_value(left, length(right))`
 
   ### Version comparison
@@ -89,137 +95,92 @@ defmodule GrowthBook.Condition do
       false
   """
   @spec eval_condition(Context.attributes(), t()) :: boolean()
-  def eval_condition(attributes, %{"$or" => conditions}),
-    do: eval_or(attributes, conditions)
-
-  def eval_condition(attributes, %{"$nor" => conditions}),
-    do: not eval_or(attributes, conditions)
-
-  def eval_condition(attributes, %{"$and" => conditions}),
-    do: eval_and(attributes, conditions)
-
-  def eval_condition(attributes, %{"$not" => conditions}),
-    do: not eval_condition(attributes, conditions)
-
   def eval_condition(attributes, conditions) do
-    Enum.reduce_while(conditions, true, fn {path, condition}, acc ->
-      if eval_condition_value(condition, get_path(attributes, path)) do
-        {:cont, acc}
-      else
-        {:halt, false}
-      end
+    # Every key must pass, including logical operators next to attribute paths
+    Enum.all?(conditions, fn
+      {"$or", conditions} -> eval_or(attributes, conditions)
+      {"$nor", conditions} -> not eval_or(attributes, conditions)
+      {"$and", conditions} -> eval_and(attributes, conditions)
+      {"$not", condition} -> not eval_condition(attributes, condition)
+      {path, condition} -> eval_condition_value(condition, get_path(attributes, path))
     end)
   end
 
-  @spec eval_condition_value(condition_value(), term()) :: boolean()
-  defp eval_condition_value(condition, value) when is_binary(condition),
-    do: to_string(value) == condition
+  # Attribute type ≠ condition type never matches; there is no type coercion
+  @spec eval_condition_value(condition_value(), term(), boolean()) :: boolean()
+  defp eval_condition_value(condition, value, insensitive \\ false)
 
-  defp eval_condition_value(condition, value) when is_number(condition) and is_number(value),
-    do: value == condition
+  defp eval_condition_value(condition, value, true)
+       when is_binary(condition) and is_binary(value),
+       do: String.downcase(value) == String.downcase(condition)
 
-  defp eval_condition_value(condition, value) when is_float(condition) and is_binary(value),
-    do: {condition, ""} == Float.parse(value)
+  defp eval_condition_value(condition, value, _insensitive)
+       when is_binary(condition) or is_number(condition) or is_boolean(condition),
+       do: get_type(value) == get_type(condition) and value == condition
 
-  defp eval_condition_value(condition, value) when is_integer(condition) and is_binary(value),
-    do: {condition, ""} == Integer.parse(value)
+  defp eval_condition_value(nil, value, _insensitive), do: value in [nil, :undefined]
 
-  defp eval_condition_value(condition, value) when is_boolean(condition),
-    do: Helpers.cast_boolish(value) == condition
-
-  defp eval_condition_value(nil, value), do: value in [nil, :undefined]
-
-  defp eval_condition_value(condition, value) do
+  defp eval_condition_value(condition, value, _insensitive) do
     if is_list(condition) or not operator_object?(condition) do
-      condition == value
+      get_type(value) == get_type(condition) and condition == value
     else
-      Enum.reduce_while(condition, true, fn {operator, expected}, acc ->
-        if eval_operator_condition(operator, value, expected) do
-          {:cont, acc}
-        else
-          {:halt, false}
-        end
+      Enum.all?(condition, fn {operator, expected} ->
+        eval_operator_condition(operator, value, expected)
       end)
     end
   end
 
+  @version_operators ["$veq", "$vne", "$vlt", "$vlte", "$vgt", "$vgte"]
+  @order_operators ["$lt", "$lte", "$gt", "$gte"]
+
   @spec eval_operator_condition(String.t(), term(), term()) :: boolean()
-  defp eval_operator_condition("$eq", left, right), do: left == right
-  defp eval_operator_condition("$ne", left, right), do: left != right
+  defp eval_operator_condition("$eq", left, right), do: strict_equal?(left, right)
+  defp eval_operator_condition("$ne", left, right), do: not strict_equal?(left, right)
 
-  # Perform JavaScript-like type coercion
-  # see https://262.ecma-international.org/5.1/#sec-11.8.5
-  @type_coercion_operators ["$lt", "$lte", "$gt", "$gte"]
-  defp eval_operator_condition(operator, left, right)
-       when is_number(left) and is_binary(right) and operator in @type_coercion_operators do
-    case Float.parse(right) do
-      {right, _rest} -> eval_operator_condition(operator, left, right)
-      _unparseable -> false
+  # Only two numbers or two strings are ordered; strings compare as text
+  defp eval_operator_condition(op, left, right) when op in @order_operators do
+    if orderable?(left, right) do
+      case op do
+        "$lt" -> left < right
+        "$lte" -> left <= right
+        "$gt" -> left > right
+        "$gte" -> left >= right
+      end
+    else
+      false
     end
   end
 
-  defp eval_operator_condition(operator, left, right)
-       when is_number(right) and is_binary(left) and operator in @type_coercion_operators do
-    case Float.parse(left) do
-      {left, _rest} -> eval_operator_condition(operator, left, right)
-      _unparseable -> false
-    end
-  end
+  # A type mismatch fails every version operator except `$vne`, its negation
+  defp eval_operator_condition(op, left, right) when op in @version_operators do
+    if orderable?(left, right) do
+      lversion = padded_version(left)
+      rversion = padded_version(right)
 
-  defp eval_operator_condition(operator, left, right)
-       when is_number(right) and is_binary(left) and operator in @type_coercion_operators do
-    case Float.parse(left) do
-      {left, _rest} -> eval_operator_condition(operator, left, right)
-      _unparseable -> false
-    end
-  end
-
-  defp eval_operator_condition(operator, left, right)
-       when is_number(right) and left in [nil, :undefined] and
-              operator in @type_coercion_operators do
-    eval_operator_condition(operator, 0, right)
-  end
-
-  defp eval_operator_condition(operator, left, right)
-       when is_number(left) and right in [nil, :undefined] and
-              operator in @type_coercion_operators do
-    eval_operator_condition(operator, left, 0)
-  end
-
-  defp eval_operator_condition("$lt", left, right), do: left < right
-  defp eval_operator_condition("$lte", left, right), do: left <= right
-  defp eval_operator_condition("$gt", left, right), do: left > right
-  defp eval_operator_condition("$gte", left, right), do: left >= right
-
-  defp eval_operator_condition(op, left, right)
-       when op in ["$veq", "$vne", "$vlt", "$vlte", "$vgt", "$vgte"] do
-    lversion = padded_version(left)
-    rversion = padded_version(right)
-
-    case op do
-      "$veq" -> lversion == rversion
-      "$vne" -> lversion != rversion
-      "$vlt" -> lversion < rversion
-      "$vlte" -> lversion <= rversion
-      "$vgt" -> lversion > rversion
-      "$vgte" -> lversion >= rversion
+      case op do
+        "$veq" -> lversion == rversion
+        "$vne" -> lversion != rversion
+        "$vlt" -> lversion < rversion
+        "$vlte" -> lversion <= rversion
+        "$vgt" -> lversion > rversion
+        "$vgte" -> lversion >= rversion
+      end
+    else
+      op == "$vne"
     end
   end
 
   defp eval_operator_condition("$exists", left, right),
     do: if(right, do: left not in [nil, :undefined], else: left in [nil, :undefined])
 
-  defp eval_operator_condition("$in", _, right) when not is_list(right), do: false
+  defp eval_operator_condition(op, left, right) when op in ["$in", "$ini"] and is_list(right),
+    do: in?(left, right, op == "$ini")
 
-  defp eval_operator_condition("$in", left, right) when is_list(left) do
-    Enum.any?(left, &(&1 in right))
-  end
+  defp eval_operator_condition(op, left, right) when op in ["$nin", "$nini"] and is_list(right),
+    do: not in?(left, right, op == "$nini")
 
-  defp eval_operator_condition("$in", left, right), do: left in right
-  defp eval_operator_condition("$nin", _, right) when not is_list(right), do: false
-
-  defp eval_operator_condition("$nin", left, right),
-    do: not eval_operator_condition("$in", left, right)
+  defp eval_operator_condition(op, _left, _right) when op in ["$in", "$ini", "$nin", "$nini"],
+    do: false
 
   defp eval_operator_condition("$not", left, right), do: not eval_condition_value(right, left)
 
@@ -229,24 +190,24 @@ defmodule GrowthBook.Condition do
   defp eval_operator_condition("$size", _left, _right), do: false
   defp eval_operator_condition("$elemMatch", left, right), do: elem_match(left, right)
 
-  defp eval_operator_condition("$all", left, right) when is_list(left) and is_list(right) do
-    Enum.reduce_while(right, true, fn condition, acc ->
-      if Enum.any?(left, &eval_condition_value(condition, &1)) do
-        {:cont, acc}
-      else
-        {:halt, false}
-      end
+  defp eval_operator_condition(op, left, right)
+       when op in ["$all", "$alli"] and is_list(left) and is_list(right) do
+    Enum.all?(right, fn condition ->
+      Enum.any?(left, &eval_condition_value(condition, &1, op == "$alli"))
     end)
   end
 
-  defp eval_operator_condition("$all", _left, _right), do: false
+  defp eval_operator_condition(op, _left, _right) when op in ["$all", "$alli"], do: false
 
-  defp eval_operator_condition("$regex", left, right) do
-    case Regex.compile(right) do
+  defp eval_operator_condition(op, left, right)
+       when op in ["$regex", "$regexi"] and is_binary(left) do
+    case Regex.compile(right, if(op == "$regexi", do: "i", else: "")) do
       {:ok, regex} -> Regex.match?(regex, left)
       {:error, _err} -> false
     end
   end
+
+  defp eval_operator_condition(op, _left, _right) when op in ["$regex", "$regexi"], do: false
 
   defp eval_operator_condition("$type", left, right), do: get_type(left) == right
 
@@ -256,6 +217,33 @@ defmodule GrowthBook.Condition do
     false
   end
 
+  @spec orderable?(term(), term()) :: boolean()
+  defp orderable?(left, right) when is_number(left) and is_number(right), do: true
+  defp orderable?(left, right) when is_binary(left) and is_binary(right), do: true
+  defp orderable?(_left, _right), do: false
+
+  # Like JavaScript's `===`: arrays and objects are never equal, and a missing attribute is null
+  @spec strict_equal?(term(), term()) :: boolean()
+  defp strict_equal?(left, _right) when is_list(left) or is_map(left), do: false
+  defp strict_equal?(:undefined, right), do: strict_equal?(nil, right)
+  defp strict_equal?(left, :undefined), do: strict_equal?(left, nil)
+
+  defp strict_equal?(left, right),
+    do: get_type(left) == get_type(right) and left == right
+
+  # An array attribute matches when any of its elements is in the list
+  @spec in?(term(), list(), boolean()) :: boolean()
+  defp in?(left, right, insensitive) when is_list(left),
+    do: Enum.any?(left, &in?(&1, right, insensitive))
+
+  defp in?(left, right, insensitive) do
+    left = case_fold(left, insensitive)
+    Enum.any?(right, &strict_equal?(left, case_fold(&1, insensitive)))
+  end
+
+  defp case_fold(value, true) when is_binary(value), do: String.downcase(value)
+  defp case_fold(value, _insensitive), do: value
+
   @spec elem_match(term(), term()) :: boolean()
   defp elem_match(left, right) when is_list(left) do
     check =
@@ -263,29 +251,19 @@ defmodule GrowthBook.Condition do
         do: &eval_condition_value(right, &1),
         else: &eval_condition(&1, right)
 
-    Enum.reduce_while(left, false, fn value, acc ->
-      if check.(value) do
-        {:halt, true}
-      else
-        {:cont, acc}
-      end
-    end)
+    # Skip only null elements; falsy values like 0, "" and false are still tested
+    Enum.any?(left, &(&1 not in [nil, :undefined] and check.(&1)))
   end
 
   defp elem_match(_left, _right), do: false
 
   @spec eval_or(Context.attributes(), [t()]) :: boolean()
   defp eval_or(_attributes, []), do: true
-  defp eval_or(attributes, [condition]), do: eval_condition(attributes, condition)
-
-  defp eval_or(attributes, [condition | conditions]),
-    do: eval_condition(attributes, condition) or eval_or(attributes, conditions)
+  defp eval_or(attributes, conditions), do: Enum.any?(conditions, &eval_condition(attributes, &1))
 
   @spec eval_and(Context.attributes(), [t()]) :: boolean()
-  defp eval_and(_attributes, []), do: true
-
-  defp eval_and(attributes, [condition | conditions]),
-    do: eval_condition(attributes, condition) and eval_and(attributes, conditions)
+  defp eval_and(attributes, conditions),
+    do: Enum.all?(conditions, &eval_condition(attributes, &1))
 
   @spec operator_object?(t()) :: boolean()
   defp operator_object?(condition) when is_map(condition) do
@@ -328,7 +306,13 @@ defmodule GrowthBook.Condition do
   def get_type(_attribute_value), do: "unknown"
 
   @doc false
-  @spec padded_version(String.t()) :: [String.t()]
+  @spec padded_version(String.t() | number()) :: String.t()
+  def padded_version(n) when is_integer(n), do: padded_version(Integer.to_string(n))
+
+  # Formats integral floats without a decimal, like JavaScript ("2.0" -> "2")
+  def padded_version(n) when is_float(n) and n == trunc(n), do: padded_version(trunc(n))
+  def padded_version(n) when is_float(n), do: padded_version(Float.to_string(n))
+  def padded_version(""), do: padded_version("0")
   def padded_version("v" <> s), do: padded_version(s)
 
   def padded_version(s) when is_binary(s) do
@@ -336,14 +320,17 @@ defmodule GrowthBook.Condition do
       String.split(s, "+")
       |> hd()
       |> String.split([".", "-"])
-      |> Enum.map(fn s ->
-        if Regex.match?(~r/^\d+$/, s),
-          do: String.pad_leading(s, 5),
-          else: s
-      end)
 
-    if length(parts) == 3,
-      do: parts ++ ["~"],
-      else: parts
+    # "~" sorts after any pre-release tag, so "1.0.0" > "1.0.0-beta"
+    parts = if length(parts) == 3, do: parts ++ ["~"], else: parts
+
+    # Joined like the JS SDK, so versions compare as one string
+    parts
+    |> Enum.map(fn s ->
+      if Regex.match?(~r/^\d+$/, s),
+        do: String.pad_leading(s, 5),
+        else: s
+    end)
+    |> Enum.join("-")
   end
 end
