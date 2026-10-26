@@ -52,7 +52,7 @@ defmodule GrowthBook.Helpers do
         n = Hash.hash(seed, hash_value, hash_version || 1)
 
         case {range, coverage} do
-          {nil, coverage} -> n <= coverage
+          {nil, coverage} -> n < coverage
           {range, _} -> in_range?(n, range)
         end
     end
