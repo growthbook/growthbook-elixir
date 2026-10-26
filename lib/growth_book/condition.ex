@@ -62,7 +62,7 @@ defmodule GrowthBook.Condition do
   - `$gte`: `left >= right`
   - `$exists`: `(left in [nil, :undefined]) != right`
   - `$type`: `typeof left == right`
-  - `$regex`: `right |> Regex.compile!() |> Regex.match?(left)`
+  - `$regex`: `right |> Regex.compile!([:unicode]) |> Regex.match?(left)`
   - `$regexi`: like `$regex`, but case-insensitive
 
   ### Array expressions
@@ -447,7 +447,13 @@ defmodule GrowthBook.Condition do
 
   defp eval_operator_condition(op, left, right, _ctx)
        when op in ["$regex", "$regexi"] and is_binary(left) and is_binary(right) do
-    case Regex.compile(right, if(op == "$regexi", do: "i", else: "")) do
+    # Match by character with Unicode case folding, like JavaScript. `:ucp` is left off so
+    # `\w`, `\d` and `\b` stay close to JavaScript's ASCII classes (Latin-1 letters still
+    # count as `\w`). JavaScript works on UTF-16 units, so a character outside the BMP is
+    # one `.` here but two there.
+    options = if op == "$regexi", do: [:unicode, :caseless], else: [:unicode]
+
+    case Regex.compile(right, options) do
       {:ok, regex} -> Regex.match?(regex, left)
       {:error, _err} -> false
     end

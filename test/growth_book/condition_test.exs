@@ -87,5 +87,13 @@ defmodule GrowthBook.ConditionTest do
 
       assert Condition.eval_condition(%{"a" => [[1], 1]}, %{"a" => %{"$in" => [1]}})
     end
+
+    test "$regex and $regexi match non-ASCII text by character" do
+      assert Condition.eval_condition(%{"a" => "É"}, %{"a" => %{"$regexi" => "^é$"}})
+      assert Condition.prune_condition(%{"a" => "É"}, %{"a" => %{"$regexi" => "^é$"}}) == true
+      refute Condition.eval_condition(%{"a" => "É"}, %{"a" => %{"$regex" => "^é$"}})
+      assert Condition.eval_condition(%{"a" => "é"}, %{"a" => %{"$regex" => "^.$"}})
+      assert Condition.eval_condition(%{"a" => "é"}, %{"a" => %{"$regexi" => "^.$"}})
+    end
   end
 end
