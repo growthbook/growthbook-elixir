@@ -505,12 +505,15 @@ defmodule GrowthBook.Condition do
   defp strict_equal?(left, right),
     do: get_type(left) == get_type(right) and left == right
 
-  # An array attribute matches when any of its elements is in the list
+  # An array attribute matches when any of its own elements is in the list. Nested arrays
+  # are not searched, and never equal anything.
   @spec in?(term(), list(), boolean()) :: boolean()
   defp in?(left, right, insensitive) when is_list(left),
-    do: Enum.any?(left, &in?(&1, right, insensitive))
+    do: Enum.any?(left, &member?(&1, right, insensitive))
 
-  defp in?(left, right, insensitive) do
+  defp in?(left, right, insensitive), do: member?(left, right, insensitive)
+
+  defp member?(left, right, insensitive) do
     left = case_fold(left, insensitive)
     Enum.any?(right, &strict_equal?(left, case_fold(&1, insensitive)))
   end

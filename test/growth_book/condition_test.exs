@@ -62,5 +62,30 @@ defmodule GrowthBook.ConditionTest do
         assert Condition.eval_condition(%{"a" => 123}, %{"a" => %{"$not" => %{op => "122"}}})
       end
     end
+
+    test "$in, $nin, $ini, $nini and list saved groups do not look inside nested arrays" do
+      attrs = %{"a" => [[1], ["x"]]}
+      groups = %{"g" => [1]}
+
+      for condition <- [
+            %{"a" => %{"$in" => [1]}},
+            %{"a" => %{"$ini" => ["X"]}},
+            %{"a" => %{"$inGroup" => "g"}}
+          ] do
+        refute Condition.eval_condition(attrs, condition, groups)
+        assert Condition.prune_condition(attrs, condition, groups) == false
+      end
+
+      for condition <- [
+            %{"a" => %{"$nin" => [1]}},
+            %{"a" => %{"$nini" => ["X"]}},
+            %{"a" => %{"$notInGroup" => "g"}}
+          ] do
+        assert Condition.eval_condition(attrs, condition, groups)
+        assert Condition.prune_condition(attrs, condition, groups) == true
+      end
+
+      assert Condition.eval_condition(%{"a" => [[1], 1]}, %{"a" => %{"$in" => [1]}})
+    end
   end
 end
