@@ -12,8 +12,8 @@ jobs:
       - name: Set up Elixir
         uses: erlef/setup-beam@v1
         with:
-          otp-version: '25'
-          elixir-version: '1.15.7'
+          otp-version: '27'
+          elixir-version: '1.17.3'
 
       - name: Check formatting
         run: mix format --check-formatted
@@ -21,40 +21,44 @@ jobs:
   dialyzer:
     name: Dialyzer
     runs-on: ubuntu-latest
+    env:
+      OTP_VERSION: '27'
+      ELIXIR_VERSION: '1.17.3'
+
     steps:
       - uses: actions/checkout@v4
 
       - name: Set up Elixir
         uses: erlef/setup-beam@v1
         with:
-          otp-version: '25'
-          elixir-version: '1.15.7'
+          otp-version: ${{ env.OTP_VERSION }}
+          elixir-version: ${{ env.ELIXIR_VERSION }}
 
       - name: Retrieve cached mix deps
         uses: actions/cache@v4
         with:
           path: deps
-          key: ${{ runner.os }}-${{ matrix.otp }}-${{ matrix.elixir }}-mix-${{ hashFiles(format('{0}{1}', github.workspace, '/mix.lock')) }}
+          key: ${{ runner.os }}-${{ env.OTP_VERSION }}-${{ env.ELIXIR_VERSION }}-mix-${{ hashFiles(format('{0}{1}', github.workspace, '/mix.lock')) }}
           restore-keys: |
-            ${{ runner.os }}-${{ matrix.otp }}-${{ matrix.elixir }}-mix-
+            ${{ runner.os }}-${{ env.OTP_VERSION }}-${{ env.ELIXIR_VERSION }}-mix-
 
       - name: Retrieve cached _build
         uses: actions/cache@v4
         with:
           path: _build
-          key: ${{ runner.os }}-${{ matrix.otp }}-${{ matrix.elixir }}-build-${{ github.sha }}
+          key: ${{ runner.os }}-${{ env.OTP_VERSION }}-${{ env.ELIXIR_VERSION }}-build-${{ github.sha }}
           restore-keys: |
-            ${{ runner.os }}-${{ matrix.otp }}-${{ matrix.elixir }}-build-
+            ${{ runner.os }}-${{ env.OTP_VERSION }}-${{ env.ELIXIR_VERSION }}-build-
 
       - name: Retrieve cached PLT
         uses: actions/cache@v4
         with:
           path: .dialyzer
-          key: ${{ runner.os }}-${{ matrix.otp }}-${{ matrix.elixir }}-dialyzer-${{ hashFiles('**/mix.lock') }}-${{ hashFiles('**/lib/*.ex') }}
+          key: ${{ runner.os }}-${{ env.OTP_VERSION }}-${{ env.ELIXIR_VERSION }}-dialyzer-${{ hashFiles('**/mix.lock') }}-${{ hashFiles('**/lib/*.ex') }}
           restore-keys: |
-            ${{ runner.os }}-${{ matrix.otp }}-${{ matrix.elixir }}-dialyzer-${{ hashFiles('**/mix.lock') }}-${{ hashFiles('**/lib/*.ex') }}
-            ${{ runner.os }}-${{ matrix.otp }}-${{ matrix.elixir }}-dialyzer-${{ hashFiles('**/mix.lock') }}-
-            ${{ runner.os }}-${{ matrix.otp }}-${{ matrix.elixir }}-dialyzer-
+            ${{ runner.os }}-${{ env.OTP_VERSION }}-${{ env.ELIXIR_VERSION }}-dialyzer-${{ hashFiles('**/mix.lock') }}-${{ hashFiles('**/lib/*.ex') }}
+            ${{ runner.os }}-${{ env.OTP_VERSION }}-${{ env.ELIXIR_VERSION }}-dialyzer-${{ hashFiles('**/mix.lock') }}-
+            ${{ runner.os }}-${{ env.OTP_VERSION }}-${{ env.ELIXIR_VERSION }}-dialyzer-
 
       - name: Install dependencies
         run: |
@@ -77,10 +81,10 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - otp: '24'
-            elixir: '1.15.7'
-          - otp: '25'
-            elixir: '1.15.7'
+          - otp: '27'
+            elixir: '1.17.3'
+          - otp: '28'
+            elixir: '1.18.4'
 
     steps:
       - uses: actions/checkout@v4

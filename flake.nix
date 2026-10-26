@@ -2,7 +2,7 @@
   description = "Growthbook dev environment";
 
   # Nixpkgs / NixOS version to use.
-  inputs.nixpkgs.url = "nixpkgs/nixos-unstable";
+  inputs.nixpkgs.url = "https://channels.nixos.org/nixos-26.05/nixexprs.tar.xz";
 
   outputs = { self, nixpkgs }:
     let
@@ -27,9 +27,9 @@
         {
           default = pkgs.mkShell {
             buildInputs = with pkgs; [
-              glibcLocales
-              elixir_1_14
-            ];
+              beam.interpreters.erlang_27
+              beam.packages.erlang_27.elixir_1_17
+            ] ++ lib.optionals stdenv.isLinux [ glibcLocales ];
           };
         });
 
