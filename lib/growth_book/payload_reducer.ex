@@ -33,14 +33,16 @@ defmodule GrowthBook.PayloadReducer do
     experiments =
       all_experiments
       |> Enum.filter(&matches?(state, metadata(&1)))
-      |> Enum.map(&prune_item(state, &1))
+      |> Enum.map(&prune_item(state, &1, false))
 
     features = Enum.reduce(experiments, features, &add_parents(state, &1, &2))
 
     contextual_bandits =
       reduce_bandits(state, payload["contextualBandits"] || %{}, features, experiments)
 
-    groups = keep_groups(state, [features, experiments, contextual_bandits], %{})
+    kept = [features, experiments, contextual_bandits]
+    {as_written, _seen} = mark(state, kept, true, {MapSet.new(), MapSet.new()})
+    groups = keep_groups(Map.put(state, :as_written, as_written), kept, %{})
 
     reduced = %{
       "features" => features,
@@ -107,7 +109,7 @@ defmodule GrowthBook.PayloadReducer do
   end
 
   # Reduces a rule or an auto experiment
-  defp prune_item(state, %{"condition" => condition} = item) when not is_nil(condition) do
+  defp prune_item(state, %{"condition" => condition} = item, rule?) when not is_nil(condition) do
     case Condition.prune_condition(state.attributes, condition, state.saved_groups) do
       true ->
         Map.delete(item, "condition")
@@ -116,15 +118,16 @@ defmodule GrowthBook.PayloadReducer do
       # rule's prerequisites are checked before it
       false ->
         item = Map.put(item, "condition", %{"$not" => %{}})
-        # A force rule that never passes never returns its value
-        if Map.has_key?(item, "force"), do: Map.put(item, "force", nil), else: item
+        # A force rule that never passes never returns its value. An auto experiment's forced
+        # variation still applies to a sticky bucketed user.
+        if rule? and Map.has_key?(item, "force"), do: Map.put(item, "force", nil), else: item
 
       pruned ->
         Map.put(item, "condition", pruned)
     end
   end
 
-  defp prune_item(_state, item), do: item
+  defp prune_item(_state, item, _rule?), do: item
 
   # Adds a feature, then the prerequisites the client evaluates for it, even when the filters
   # drop them. With :filter, only the filters decide, except for holdouts, which aren't app
@@ -144,7 +147,7 @@ defmodule GrowthBook.PayloadReducer do
           rules when is_list(rules) ->
             rules
             |> Enum.filter(&(not scoped or rule_in_projects?(state, rule_metadata(&1))))
-            |> Enum.map(&prune_item(state, &1))
+            |> Enum.map(&prune_item(state, &1, true))
 
           _none ->
             nil
@@ -185,21 +188,28 @@ defmodule GrowthBook.PayloadReducer do
         bandits
       else
         bandit = all_bandits[ref]
-
-        contexts =
-          Enum.flat_map(bandit["contexts"] || [], fn context ->
-            condition = context["condition"] || %{}
-
-            case Condition.prune_condition(state.attributes, condition, state.saved_groups) do
-              false -> []
-              true -> [Map.put(context, "condition", %{})]
-              pruned -> [Map.put(context, "condition", pruned)]
-            end
-          end)
-
-        Map.put(bandits, ref, Map.put(bandit, "contexts", contexts))
+        reduce_bandit(state, bandits, ref, bandit)
       end
     end)
+  end
+
+  # Evaluation tolerates a definition that isn't an object, so it stays
+  defp reduce_bandit(_state, bandits, ref, bandit) when not is_map(bandit),
+    do: Map.put(bandits, ref, bandit)
+
+  defp reduce_bandit(state, bandits, ref, bandit) do
+    contexts =
+      Enum.flat_map(bandit["contexts"] || [], fn context ->
+        condition = context["condition"] || %{}
+
+        case Condition.prune_condition(state.attributes, condition, state.saved_groups) do
+          false -> []
+          true -> [Map.put(context, "condition", %{})]
+          pruned -> [Map.put(context, "condition", pruned)]
+        end
+      end)
+
+    Map.put(bandits, ref, Map.put(bandit, "contexts", contexts))
   end
 
   # Keeps each saved group whose id appears as a string anywhere, with condition groups reduced.
@@ -211,9 +221,13 @@ defmodule GrowthBook.PayloadReducer do
       group = state.saved_groups[value]
 
       group =
-        case Condition.prune_saved_group(state.attributes, %{"id" => value}, state.saved_groups) do
-          %{} = condition -> Map.put(group, "condition", condition)
-          _decided -> group
+        if MapSet.member?(state.as_written, value) or reaches?(state, value, value) do
+          group
+        else
+          case Condition.prune_saved_group(state.attributes, %{"id" => value}, state.saved_groups) do
+            %{} = condition -> Map.put(group, "condition", condition)
+            _decided -> group
+          end
         end
 
       keep_groups(state, group, Map.put(groups, value, group))
@@ -227,6 +241,58 @@ defmodule GrowthBook.PayloadReducer do
     do: Enum.reduce(value, groups, &keep_groups(state, &1, &2))
 
   defp keep_groups(_state, _value, groups), do: groups
+
+  # Groups that keep their condition as written: those evaluated against something other than the
+  # user (each item in $elemMatch, or the parent's value in a prerequisite), and the groups those
+  # reference. `user` is whether the value is evaluated against the user.
+  defp mark(state, value, user, {as_written, seen} = acc) when is_binary(value) do
+    cond do
+      not Map.has_key?(state.saved_groups, value) or MapSet.member?(as_written, value) -> acc
+      user and MapSet.member?(seen, value) -> acc
+      user -> mark(state, state.saved_groups[value], true, {as_written, MapSet.put(seen, value)})
+      true -> mark(state, state.saved_groups[value], false, {MapSet.put(as_written, value), seen})
+    end
+  end
+
+  defp mark(state, value, user, acc) when is_map(value) do
+    Enum.reduce(value, acc, fn {key, child}, acc ->
+      mark(state, child, user and key not in ["$elemMatch", "parentConditions"], acc)
+    end)
+  end
+
+  defp mark(state, value, user, acc) when is_list(value),
+    do: Enum.reduce(value, acc, &mark(state, &1, user, &2))
+
+  defp mark(_state, _value, _user, acc), do: acc
+
+  # A group on a cycle can't be reduced on its own: its result depends on which group the
+  # evaluation entered the cycle from
+  defp reaches?(state, from, to), do: walk(state, [from], MapSet.new(), to)
+
+  defp walk(_state, [], _visited, _to), do: false
+
+  defp walk(state, [id | rest], visited, to) do
+    refs = state.saved_groups[id] |> group_ids(state) |> Enum.uniq()
+
+    if to in refs do
+      true
+    else
+      new = Enum.reject(refs, &MapSet.member?(visited, &1))
+      walk(state, rest ++ new, MapSet.union(visited, MapSet.new(new)), to)
+    end
+  end
+
+  # Every saved group id that appears as a string anywhere in the value
+  defp group_ids(value, state) when is_binary(value),
+    do: if(Map.has_key?(state.saved_groups, value), do: [value], else: [])
+
+  defp group_ids(value, state) when is_map(value),
+    do: Enum.flat_map(Map.values(value), &group_ids(&1, state))
+
+  defp group_ids(value, state) when is_list(value),
+    do: Enum.flat_map(value, &group_ids(&1, state))
+
+  defp group_ids(_value, _state), do: []
 
   defp truthy?(value), do: value not in [nil, false, 0, ""]
 end
