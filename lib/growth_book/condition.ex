@@ -450,7 +450,8 @@ defmodule GrowthBook.Condition do
     # Match by character with Unicode case folding, like JavaScript. `:ucp` is left off so
     # `\w`, `\d` and `\b` stay close to JavaScript's ASCII classes (Latin-1 letters still
     # count as `\w`). JavaScript works on UTF-16 units, so a character outside the BMP is
-    # one `.` here but two there.
+    # one `.` here but two there. Caseless matching also applies a few folds that JavaScript's
+    # non-Unicode `/i` skips, such as the Kelvin sign to `k` and long s to `s`.
     options = if op == "$regexi", do: [:unicode, :caseless], else: [:unicode]
 
     case Regex.compile(right, options) do
