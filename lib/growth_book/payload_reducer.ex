@@ -42,7 +42,8 @@ defmodule GrowthBook.PayloadReducer do
 
     kept = [features, experiments, contextual_bandits]
     {as_written, _seen} = mark(state, kept, true, {MapSet.new(), MapSet.new()})
-    groups = keep_groups(Map.put(state, :as_written, as_written), kept, %{})
+    state = Map.merge(state, %{as_written: as_written, cyclic: cyclic_groups(saved_groups)})
+    groups = keep_groups(state, kept, %{})
 
     reduced = %{
       "features" => features,
@@ -221,7 +222,7 @@ defmodule GrowthBook.PayloadReducer do
       group = state.saved_groups[value]
 
       group =
-        if MapSet.member?(state.as_written, value) or reaches?(state, value, value) do
+        if MapSet.member?(state.as_written, value) or MapSet.member?(state.cyclic, value) do
           group
         else
           case Condition.prune_saved_group(state.attributes, %{"id" => value}, state.saved_groups) do
@@ -266,33 +267,88 @@ defmodule GrowthBook.PayloadReducer do
   defp mark(_state, _value, _user, acc), do: acc
 
   # A group on a cycle can't be reduced on its own: its result depends on which group the
-  # evaluation entered the cycle from
-  defp reaches?(state, from, to), do: walk(state, [from], MapSet.new(), to)
+  # evaluation entered the cycle from. Each group's references are collected once, then the
+  # groups on a cycle (a strongly connected component of more than one group, or a group that
+  # references itself) are found in one pass (Tarjan's algorithm).
+  defp cyclic_groups(saved_groups) do
+    graph =
+      Map.new(saved_groups, fn {id, group} ->
+        {id, group |> group_ids(saved_groups) |> Enum.uniq()}
+      end)
 
-  defp walk(_state, [], _visited, _to), do: false
+    acc = %{
+      index: 0,
+      indices: %{},
+      low: %{},
+      stack: [],
+      on_stack: MapSet.new(),
+      cyclic: MapSet.new()
+    }
 
-  defp walk(state, [id | rest], visited, to) do
-    refs = state.saved_groups[id] |> group_ids(state) |> Enum.uniq()
+    graph
+    |> Map.keys()
+    |> Enum.reduce(acc, fn id, acc ->
+      if Map.has_key?(acc.indices, id), do: acc, else: strong_connect(id, graph, acc)
+    end)
+    |> Map.fetch!(:cyclic)
+  end
 
-    if to in refs do
-      true
+  defp strong_connect(id, graph, acc) do
+    acc = %{
+      acc
+      | index: acc.index + 1,
+        indices: Map.put(acc.indices, id, acc.index),
+        low: Map.put(acc.low, id, acc.index),
+        stack: [id | acc.stack],
+        on_stack: MapSet.put(acc.on_stack, id)
+    }
+
+    acc =
+      Enum.reduce(graph[id], acc, fn ref, acc ->
+        cond do
+          not Map.has_key?(acc.indices, ref) ->
+            acc = strong_connect(ref, graph, acc)
+            %{acc | low: Map.put(acc.low, id, min(acc.low[id], acc.low[ref]))}
+
+          MapSet.member?(acc.on_stack, ref) ->
+            %{acc | low: Map.put(acc.low, id, min(acc.low[id], acc.indices[ref]))}
+
+          true ->
+            acc
+        end
+      end)
+
+    if acc.low[id] == acc.indices[id] do
+      {above, [^id | rest]} = Enum.split_while(acc.stack, &(&1 != id))
+      component = [id | above]
+
+      cyclic =
+        if length(component) > 1 or id in graph[id],
+          do: MapSet.union(acc.cyclic, MapSet.new(component)),
+          else: acc.cyclic
+
+      %{
+        acc
+        | stack: rest,
+          on_stack: MapSet.difference(acc.on_stack, MapSet.new(component)),
+          cyclic: cyclic
+      }
     else
-      new = Enum.reject(refs, &MapSet.member?(visited, &1))
-      walk(state, rest ++ new, MapSet.union(visited, MapSet.new(new)), to)
+      acc
     end
   end
 
   # Every saved group id that appears as a string anywhere in the value
-  defp group_ids(value, state) when is_binary(value),
-    do: if(Map.has_key?(state.saved_groups, value), do: [value], else: [])
+  defp group_ids(value, saved_groups) when is_binary(value),
+    do: if(Map.has_key?(saved_groups, value), do: [value], else: [])
 
-  defp group_ids(value, state) when is_map(value),
-    do: Enum.flat_map(Map.values(value), &group_ids(&1, state))
+  defp group_ids(value, saved_groups) when is_map(value),
+    do: Enum.flat_map(Map.values(value), &group_ids(&1, saved_groups))
 
-  defp group_ids(value, state) when is_list(value),
-    do: Enum.flat_map(value, &group_ids(&1, state))
+  defp group_ids(value, saved_groups) when is_list(value),
+    do: Enum.flat_map(value, &group_ids(&1, saved_groups))
 
-  defp group_ids(_value, _state), do: []
+  defp group_ids(_value, _saved_groups), do: []
 
   defp truthy?(value), do: value not in [nil, false, 0, ""]
 end
