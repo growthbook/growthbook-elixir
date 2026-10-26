@@ -78,4 +78,79 @@ defmodule GrowthBook.PayloadReducerTest do
     assert reduced["outside"]["condition"] == %{"$savedGroup" => %{"id" => "a"}}
     assert reduced["plain"]["condition"] == %{"z" => 1}
   end
+
+  test "never follows a list group's values to other groups" do
+    vip = %{
+      "type" => "condition",
+      "condition" => %{"plan" => "pro", "id" => %{"$inGroup" => "ids"}}
+    }
+
+    for ids <- [%{"type" => "list", "attributeKey" => "id", "values" => ["vip"]}, ["vip"]] do
+      # "ids" names "vip" only as an attribute value, so "vip" isn't on a cycle and is reduced
+      payload = %{
+        "features" => feature_using(["vip"]),
+        "savedGroups" => %{"vip" => vip, "ids" => ids}
+      }
+
+      reduced = GrowthBook.reduce_payload(payload, attributes: %{"plan" => "pro"})["savedGroups"]
+      assert reduced["vip"]["condition"] == %{"id" => %{"$inGroup" => "ids"}}
+      assert reduced["ids"] == ids
+
+      # A list group under $elemMatch doesn't mark the groups its values name as written
+      payload = %{
+        "features" => %{
+          "flag" => %{
+            "defaultValue" => false,
+            "rules" => [
+              %{
+                "force" => true,
+                "condition" => %{
+                  "tags" => %{"$elemMatch" => %{"$inGroup" => "ids"}},
+                  "$savedGroup" => %{"id" => "vip"}
+                }
+              }
+            ]
+          }
+        },
+        "savedGroups" => %{"vip" => vip, "ids" => ids}
+      }
+
+      reduced = GrowthBook.reduce_payload(payload, attributes: %{"plan" => "pro"})["savedGroups"]
+      assert reduced["vip"]["condition"] == %{"id" => %{"$inGroup" => "ids"}}
+
+      # A group named only in a list's values isn't kept
+      payload = %{
+        "features" => %{
+          "flag" => %{
+            "defaultValue" => false,
+            "rules" => [%{"force" => true, "condition" => %{"id" => %{"$inGroup" => "ids"}}}]
+          }
+        },
+        "savedGroups" => %{"vip" => vip, "ids" => ids}
+      }
+
+      assert GrowthBook.reduce_payload(payload)["savedGroups"] == %{"ids" => ids}
+    end
+  end
+
+  test "skips the saved group walks when the payload has no groups" do
+    # Only a map holds groups, so a malformed empty list is no groups rather than an error
+    payload = %{"features" => feature_using(["missing"]), "savedGroups" => []}
+
+    assert GrowthBook.reduce_payload(payload)["savedGroups"] == %{}
+  end
+
+  test "leaves contextualBandits out when the payload has none" do
+    for bandits <- [:absent, nil, false] do
+      payload = %{"features" => feature_using([]), "savedGroups" => %{}}
+
+      payload =
+        if bandits == :absent, do: payload, else: Map.put(payload, "contextualBandits", bandits)
+
+      refute Map.has_key?(GrowthBook.reduce_payload(payload), "contextualBandits")
+    end
+
+    payload = %{"features" => %{}, "contextualBandits" => %{}}
+    assert GrowthBook.reduce_payload(payload)["contextualBandits"] == %{}
+  end
 end

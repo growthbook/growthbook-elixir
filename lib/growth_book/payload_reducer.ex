@@ -40,10 +40,16 @@ defmodule GrowthBook.PayloadReducer do
     contextual_bandits =
       reduce_bandits(state, payload["contextualBandits"] || %{}, features, experiments)
 
-    kept = [features, experiments, contextual_bandits]
-    {as_written, _seen} = mark(state, kept, true, {MapSet.new(), MapSet.new()})
-    state = Map.merge(state, %{as_written: as_written, cyclic: cyclic_groups(saved_groups)})
-    groups = keep_groups(state, kept, %{})
+    # Walking the payload is only needed when there are groups to find
+    groups =
+      if is_map(saved_groups) and map_size(saved_groups) > 0 do
+        kept = [features, experiments, contextual_bandits]
+        {as_written, _seen} = mark(state, kept, true, {MapSet.new(), MapSet.new()})
+        state = Map.merge(state, %{as_written: as_written, cyclic: cyclic_groups(saved_groups)})
+        keep_groups(state, kept, %{})
+      else
+        %{}
+      end
 
     reduced = %{
       "features" => features,
@@ -51,13 +57,11 @@ defmodule GrowthBook.PayloadReducer do
       "savedGroups" => groups
     }
 
-    # Only when there were any, as with the payload's other optional keys
-    reduced =
-      if truthy?(payload["contextualBandits"]),
-        do: Map.put(reduced, "contextualBandits", contextual_bandits),
-        else: reduced
-
-    Map.merge(payload, reduced)
+    # Only when there were any, as with the payload's other optional keys. Left out rather than
+    # null, which some JSON consumers reject.
+    if truthy?(payload["contextualBandits"]),
+      do: payload |> Map.merge(reduced) |> Map.put("contextualBandits", contextual_bandits),
+      else: payload |> Map.merge(reduced) |> Map.delete("contextualBandits")
   end
 
   defp metadata(%{} = item), do: item["metadata"] || %{}
@@ -231,7 +235,8 @@ defmodule GrowthBook.PayloadReducer do
           end
         end
 
-      keep_groups(state, group, Map.put(groups, value, group))
+      groups = Map.put(groups, value, group)
+      if can_reference?(group), do: keep_groups(state, group, groups), else: groups
     end
   end
 
@@ -250,8 +255,8 @@ defmodule GrowthBook.PayloadReducer do
     cond do
       not Map.has_key?(state.saved_groups, value) or MapSet.member?(as_written, value) -> acc
       user and MapSet.member?(seen, value) -> acc
-      user -> mark(state, state.saved_groups[value], true, {as_written, MapSet.put(seen, value)})
-      true -> mark(state, state.saved_groups[value], false, {MapSet.put(as_written, value), seen})
+      user -> mark_group(state, value, true, {as_written, MapSet.put(seen, value)})
+      true -> mark_group(state, value, false, {MapSet.put(as_written, value), seen})
     end
   end
 
@@ -266,6 +271,11 @@ defmodule GrowthBook.PayloadReducer do
 
   defp mark(_state, _value, _user, acc), do: acc
 
+  defp mark_group(state, id, user, acc) do
+    group = state.saved_groups[id]
+    if can_reference?(group), do: mark(state, group, user, acc), else: acc
+  end
+
   # A group on a cycle can't be reduced on its own: its result depends on which group the
   # evaluation entered the cycle from. Each group's references are collected once, then the
   # groups on a cycle (a strongly connected component of more than one group, or a group that
@@ -273,7 +283,8 @@ defmodule GrowthBook.PayloadReducer do
   defp cyclic_groups(saved_groups) do
     graph =
       Map.new(saved_groups, fn {id, group} ->
-        {id, group |> group_ids(saved_groups) |> Enum.uniq()}
+        refs = if can_reference?(group), do: group_ids(group, saved_groups), else: []
+        {id, Enum.uniq(refs)}
       end)
 
     acc = %{
@@ -349,6 +360,11 @@ defmodule GrowthBook.PayloadReducer do
     do: Enum.flat_map(value, &group_ids(&1, saved_groups))
 
   defp group_ids(_value, _saved_groups), do: []
+
+  # A list's values (or a legacy bare list's) are attribute values, never references to other
+  # groups
+  defp can_reference?(%{} = group), do: group["type"] != "list"
+  defp can_reference?(_group), do: false
 
   defp truthy?(value), do: value not in [nil, false, 0, ""]
 end
