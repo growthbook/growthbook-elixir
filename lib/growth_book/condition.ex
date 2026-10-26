@@ -157,6 +157,107 @@ defmodule GrowthBook.Condition do
     end)
   end
 
+  @doc """
+  Partially evaluates a condition when only some attributes are known, e.g. on a server.
+
+  Attributes missing from `attributes` are unknown, and so is any nested path. Returns a boolean
+  once the result can't depend on unknown attributes, otherwise the condition minus every branch
+  that is already decided. A condition that raises, such as a malformed one, is returned as is.
+
+  ## Examples
+
+      iex> GrowthBook.Condition.prune_condition(%{"id" => "123"}, %{
+      ...>   "id" => %{"$ne" => "789"},
+      ...>   "country" => "US"
+      ...> })
+      %{"country" => "US"}
+  """
+  @spec prune_condition(Context.attributes(), t(), saved_groups()) :: t() | boolean()
+  def prune_condition(attributes, condition, saved_groups \\ %{}) do
+    prune_with_context(attributes, condition, new_context(saved_groups))
+  end
+
+  @doc false
+  # Prunes the saved group a reference points to. Returns its result once decided, :unknown
+  # while it depends on an unknown attribute, or its condition minus every decided branch.
+  @spec prune_saved_group(Context.attributes(), term(), saved_groups()) :: result() | t()
+  def prune_saved_group(attributes, reference, saved_groups) do
+    eval_saved_group(attributes, reference, new_context(saved_groups), &prune_with_context/3)
+  end
+
+  # A condition that raises stays as written. Evaluating it fails as a whole, so no part of it
+  # can be decided.
+  defp prune_with_context(attributes, condition, ctx) do
+    prune_entries(attributes, condition, ctx)
+  rescue
+    _error -> condition
+  end
+
+  defp prune_entries(attributes, condition, ctx) do
+    result =
+      Enum.reduce_while(condition, %{}, fn {key, value}, acc ->
+        result =
+          case key do
+            op when op in ["$or", "$nor", "$and"] ->
+              prune_list(attributes, value, ctx, op != "$and")
+
+            "$not" ->
+              prune_entries(attributes, value, ctx)
+
+            "$savedGroup" ->
+              # Keep an undecided reference as is rather than inlining the group
+              case eval_saved_group(attributes, value, ctx, &prune_entries/3) do
+                decided when is_boolean(decided) -> decided
+                _undecided -> :unknown
+              end
+
+            path ->
+              # Unknown when the attribute is unknown, or the value uses an operator this SDK
+              # doesn't support, which the client's SDK may
+              if known?(attributes, path),
+                do: eval_condition_value(value, get_path(attributes, path), ctx),
+                else: :unknown
+          end
+
+        # `$not` and `$nor` pass when what they hold fails
+        result =
+          if key in ["$not", "$nor"] and is_boolean(result), do: not result, else: result
+
+        # One failing entry fails the whole condition, and a passing one is dropped
+        case result do
+          false -> {:halt, false}
+          true -> {:cont, acc}
+          :unknown -> {:cont, Map.put(acc, key, value)}
+          pruned -> {:cont, Map.put(acc, key, pruned)}
+        end
+      end)
+
+    if result == %{}, do: true, else: result
+  end
+
+  # Prunes an `$or` (or an `$and`) list. Returns the conditions still undecided, or the list's
+  # result once there are none.
+  defp prune_list(attributes, conditions, ctx, or?) when is_list(conditions) do
+    result =
+      Enum.reduce_while(conditions, [], fn condition, acc ->
+        case prune_entries(attributes, condition, ctx) do
+          # One passing condition decides an `$or`, and one failing condition an `$and`
+          true when or? -> {:halt, true}
+          false when not or? -> {:halt, false}
+          decided when is_boolean(decided) -> {:cont, acc}
+          pruned -> {:cont, [pruned | acc]}
+        end
+      end)
+
+    case result do
+      decided when is_boolean(decided) -> decided
+      # Every condition failed an `$or`, or passed an `$and`. Like `eval_or`, an empty `$or`
+      # passes.
+      [] -> if or?, do: conditions == [], else: true
+      pruned -> Enum.reverse(pruned)
+    end
+  end
+
   # A nested path is unknown, since the server may only have part of the object
   defp known?(attributes, path),
     do: is_map(attributes) and not String.contains?(path, ".") and Map.has_key?(attributes, path)

@@ -28,6 +28,30 @@ defmodule GrowthBook.ConformanceTest do
     }
   }
 
+  # Whole sections this SDK doesn't run yet, and why
+  @unsupported_sections %{
+    "decrypt" => "not run by this harness",
+    "stickyBucket" => "sticky bucketing",
+    "urlRedirect" => "URL redirects (browser only)",
+    "contextualBandit" => "contextual bandits",
+    "savedGroupReferencesV2.feature" => "saved groups in the context",
+    "savedGroupReferencesV2.run" => "saved groups in the context"
+  }
+
+  test "every spec section is run or listed as unsupported" do
+    sections =
+      for {key, value} <- unquote(Macro.escape(cases)), key != "specVersion" do
+        if is_map(value), do: Enum.map(Map.keys(value), &"#{key}.#{&1}"), else: [key]
+      end
+      |> List.flatten()
+
+    run =
+      ~w(hash getBucketRange chooseVariation getQueryStringOverride inNamespace getEqualWeights
+         evalCondition feature run pruneCondition reducePayload savedGroupReferencesV2.evalCondition)
+
+    assert Enum.sort(sections) == Enum.sort(run ++ Map.keys(@unsupported_sections))
+  end
+
   describe "GrowthBook.Hash.hash/1" do
     @describetag :hash
 
@@ -143,6 +167,56 @@ defmodule GrowthBook.ConformanceTest do
           actual = GrowthBook.Condition.eval_condition(attributes, condition, saved_groups)
 
           assert unquote(expected) == actual
+        end)
+      end
+    end
+  end
+
+  describe "GrowthBook.prune_condition/3" do
+    @describetag :prune_condition
+
+    for {test_case, index} <- Enum.with_index(cases["pruneCondition"]) do
+      [desc, condition, attributes, expected | rest] = test_case
+      saved_groups = List.first(rest) || %{}
+
+      test "##{index}: #{desc}" do
+        condition = unquote(Macro.escape(condition))
+        attributes = unquote(Macro.escape(attributes))
+        saved_groups = unquote(Macro.escape(saved_groups))
+
+        capture_io(:stderr, fn ->
+          assert unquote(Macro.escape(expected)) ==
+                   GrowthBook.prune_condition(attributes, condition, saved_groups)
+        end)
+      end
+    end
+  end
+
+  describe "GrowthBook.reduce_payload/2" do
+    @describetag :reduce_payload
+
+    for {test_case, index} <- Enum.with_index(cases["reducePayload"]) do
+      [desc, input, expected] = test_case
+
+      test "##{index}: #{desc}" do
+        input = unquote(Macro.escape(input))
+
+        # Global attributes are merged with the user's, which take precedence
+        attributes = Map.merge(input["globalAttributes"] || %{}, input["attributes"] || %{})
+
+        opts =
+          [
+            attributes: attributes,
+            include: filters_from_json(input["include"]),
+            exclude: filters_from_json(input["exclude"]),
+            prerequisites:
+              input["prerequisites"] && String.to_existing_atom(input["prerequisites"])
+          ]
+          |> Enum.reject(fn {_key, value} -> is_nil(value) end)
+
+        capture_io(:stderr, fn ->
+          assert unquote(Macro.escape(expected)) ==
+                   GrowthBook.reduce_payload(input["payload"], opts)
         end)
       end
     end

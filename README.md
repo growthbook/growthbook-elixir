@@ -217,6 +217,30 @@ Key improvements:
 - **Resilient**: Keeps existing features on API errors
 - **Configurable**: Control refresh intervals and strategies
 
+## Reducing Payloads for Client SDKs
+
+When a server bootstraps a client SDK, it can send a smaller payload with `GrowthBook.reduce_payload/2`.
+It takes the decoded, decrypted payload from the GrowthBook API and the attributes known on the server,
+decides every condition that only depends on them, and drops what can never apply. The result evaluates
+the same as the full payload for any user with those attributes.
+
+```elixir
+payload = Jason.decode!(api_response_body)
+
+reduced =
+  GrowthBook.reduce_payload(payload,
+    attributes: %{"id" => "123", "country" => "US"},
+    # Optional: keep only features and auto experiments with these projects, tags or custom fields
+    include: [projects: ["mobile"], custom_fields: %{"platform" => ["android"]}],
+    # Optional: remove the ones that match any of these
+    exclude: [tags: ["internal"]]
+  )
+
+json_for_client = Jason.encode!(reduced)
+```
+
+`GrowthBook.prune_condition/3` does the same for a single condition.
+
 ## License
 
 This library is MIT licensed. See the

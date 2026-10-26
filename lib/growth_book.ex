@@ -353,6 +353,59 @@ defmodule GrowthBook do
   end
 
   @doc """
+  Partially evaluates a condition when only some attributes are known, e.g. on a server.
+
+  Attributes missing from `attributes` are unknown, and so is any nested path. Returns `true` or
+  `false` once the result can't depend on unknown attributes, otherwise the condition minus every
+  branch that is already decided. `saved_groups` is the payload's `savedGroups` map.
+
+  ## Examples
+
+      iex> GrowthBook.prune_condition(%{"id" => "123"}, %{"id" => "123", "country" => "US"})
+      %{"country" => "US"}
+
+      iex> GrowthBook.prune_condition(%{"id" => "123"}, %{"id" => "456"})
+      false
+  """
+  @spec prune_condition(Context.attributes(), Condition.t(), Condition.saved_groups()) ::
+          Condition.t() | boolean()
+  defdelegate prune_condition(attributes, condition, saved_groups \\ %{}), to: Condition
+
+  @doc """
+  Shrinks a features payload for a user whose attributes are only partly known, e.g. on a server
+  bootstrapping a client SDK. The result evaluates the same as the full payload for anyone who
+  agrees with the known attributes.
+
+  `payload` is the decoded, decrypted payload map from the GrowthBook API (with `"features"`,
+  `"experiments"`, `"savedGroups"`, ...). Other keys are kept as they are.
+
+  ## Options
+
+    * `:attributes` - the attributes known on the server. Conditions on them are decided and
+      removed; conditions on other attributes are kept for the client.
+    * `:include` - keep only the features and auto experiments that match every filter. A keyword
+      list with `:projects`, `:tags` and `:custom_fields` (a map of field name to accepted values).
+    * `:exclude` - remove the features and auto experiments that match any filter, same shape.
+    * `:prerequisites` - `:keep` (default) keeps the prerequisites of what is kept even when the
+      filters remove them, so the client evaluates the same as the full payload. `:filter` applies
+      the filters to them too.
+
+  ## Examples
+
+      iex> GrowthBook.reduce_payload(
+      ...>   %{"features" => %{"f" => %{"defaultValue" => 0, "rules" => [%{"condition" => %{"id" => "123"}, "force" => 1}]}}},
+      ...>   attributes: %{"id" => "123"}
+      ...> )
+      %{
+        "features" => %{"f" => %{"defaultValue" => 0, "rules" => [%{"force" => 1}]}},
+        "experiments" => [],
+        "savedGroups" => %{}
+      }
+  """
+  @spec reduce_payload(map(), keyword()) :: map()
+  defdelegate reduce_payload(payload, opts \\ []), to: GrowthBook.PayloadReducer, as: :reduce
+
+  @doc """
   Initialize GrowthBook with the feature repository configuration.
   Returns {:ok, :initialized} if initialization succeeds with features loaded, {:error, reason} otherwise.
 
