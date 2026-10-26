@@ -95,5 +95,18 @@ defmodule GrowthBook.ConditionTest do
       assert Condition.eval_condition(%{"a" => "é"}, %{"a" => %{"$regex" => "^.$"}})
       assert Condition.eval_condition(%{"a" => "é"}, %{"a" => %{"$regexi" => "^.$"}})
     end
+
+    test "case-insensitive operators lowercase a final sigma like JavaScript" do
+      attrs = %{"a" => "ΟΣ", "list" => ["ΟΣ"]}
+
+      for condition <- [
+            %{"a" => %{"$ini" => ["ος"]}},
+            %{"list" => %{"$alli" => ["ος"]}},
+            %{"a" => %{"$not" => %{"$nini" => ["ος"]}}}
+          ] do
+        assert Condition.eval_condition(attrs, condition)
+        assert Condition.prune_condition(attrs, condition) == true
+      end
+    end
   end
 end

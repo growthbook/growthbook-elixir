@@ -338,7 +338,7 @@ defmodule GrowthBook.Condition do
 
   defp eval_condition_value(condition, value, _ctx, true)
        when is_binary(condition) and is_binary(value),
-       do: String.downcase(value) == String.downcase(condition)
+       do: downcase(value) == downcase(condition)
 
   defp eval_condition_value(condition, value, _ctx, _insensitive)
        when is_binary(condition) or is_number(condition) or is_boolean(condition),
@@ -524,8 +524,12 @@ defmodule GrowthBook.Condition do
     Enum.any?(right, &strict_equal?(left, case_fold(&1, insensitive)))
   end
 
-  defp case_fold(value, true) when is_binary(value), do: String.downcase(value)
+  defp case_fold(value, true) when is_binary(value), do: downcase(value)
   defp case_fold(value, _insensitive), do: value
+
+  # Like JavaScript's `toLowerCase`, which turns a word-final "Σ" into "ς"
+  @spec downcase(String.t()) :: String.t()
+  defp downcase(value), do: String.downcase(value, :greek)
 
   @spec elem_match(term(), term(), map()) :: result()
   defp elem_match(left, right, ctx) when is_list(left) do
