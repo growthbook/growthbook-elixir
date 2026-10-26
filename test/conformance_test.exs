@@ -6,19 +6,14 @@ defmodule GrowthBook.ConformanceTest do
 
   cases = "test/fixtures/cases.json" |> File.read!() |> Jason.decode!()
 
-  # Spec cases for features this SDK doesn't implement yet, by section and description
+  # Spec cases for features this SDK doesn't implement yet, by section and description.
+  # Saved groups are supported in conditions (`GrowthBook.Condition.eval_condition/3`), but not
+  # yet read from a context's payload.
   @unsupported %{
-    "evalCondition" => %{
-      "$inGroup passes for member of known group id" => "saved groups",
-      "$notInGroup passes for non-member of known group id" => "saved groups",
-      "$notInGroup passes for unknown group id" => "saved groups",
-      "$inGroup passes for properly typed data" => "saved groups",
-      "type mismatch - $notInGroup 2 vs [\"2\"] group" => "saved groups",
-      "type mismatch - $notInGroup \"3\" vs [3] group" => "saved groups"
-    },
     "feature" => %{
-      "SavedGroups correctly pulled from context for force rule" => "saved groups",
-      "SavedGroups correctly pulled from context for experiment rule" => "saved groups",
+      "SavedGroups correctly pulled from context for force rule" => "saved groups in the context",
+      "SavedGroups correctly pulled from context for experiment rule" =>
+        "saved groups in the context",
       "CB rule with empty contexts (explore) buckets on marginal weights with fallback leaf -1" =>
         "contextual bandits",
       "CB rule with no contexts key falls back to marginal weights (fallback leaf -1)" =>
@@ -29,7 +24,7 @@ defmodule GrowthBook.ConformanceTest do
         "contextual bandits"
     },
     "run" => %{
-      "SavedGroups correctly pulled from context for experiment" => "saved groups"
+      "SavedGroups correctly pulled from context for experiment" => "saved groups in the context"
     }
   }
 
@@ -127,22 +122,25 @@ defmodule GrowthBook.ConformanceTest do
     end
   end
 
-  describe "GrowthBook.Condition.eval_condition/2" do
+  describe "GrowthBook.Condition.eval_condition/3" do
     @describetag :eval_condition
 
-    for {test_case, index} <- Enum.with_index(cases["evalCondition"]) do
-      [desc, condition, attributes, expected | _saved_groups] = test_case
+    for {section, test_cases} <- [
+          {"evalCondition", cases["evalCondition"]},
+          {"savedGroupReferencesV2.evalCondition",
+           cases["savedGroupReferencesV2"]["evalCondition"]}
+        ],
+        {test_case, index} <- Enum.with_index(test_cases) do
+      [desc, condition, attributes, expected | rest] = test_case
+      saved_groups = List.first(rest) || %{}
 
-      if reason = @unsupported["evalCondition"][desc] do
-        @tag skip: "Not implemented: #{reason}"
-      end
-
-      test "##{index}: #{desc}" do
+      test "#{section} ##{index}: #{desc}" do
         condition = unquote(Macro.escape(condition))
         attributes = unquote(Macro.escape(attributes))
+        saved_groups = unquote(Macro.escape(saved_groups))
 
         capture_io(:stderr, fn ->
-          actual = GrowthBook.Condition.eval_condition(attributes, condition)
+          actual = GrowthBook.Condition.eval_condition(attributes, condition, saved_groups)
 
           assert unquote(expected) == actual
         end)

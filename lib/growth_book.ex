@@ -215,8 +215,14 @@ defmodule GrowthBook do
 
   defp eval_rule_condition(_, nil), do: true
 
-  defp eval_rule_condition(attributes, condition),
-    do: Condition.eval_condition(attributes, condition)
+  # A condition that raises, such as a malformed one, fails rather than breaking evaluation
+  defp eval_rule_condition(attributes, condition) do
+    Condition.eval_condition(attributes, condition)
+  rescue
+    error ->
+      Logger.debug("Condition evaluation failed: #{Exception.message(error)}")
+      false
+  end
 
   defp filtered_out?(_context, nil), do: false
 
