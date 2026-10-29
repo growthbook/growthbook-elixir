@@ -1,14 +1,14 @@
 defmodule GrowthBook.MixProject do
   use Mix.Project
 
-  @version "0.3.0"
+  @version "0.4.0"
   @repo_url "https://github.com/growthbook/growthbook-elixir"
 
   def project do
     [
       app: :growthbook,
       version: @version,
-      elixir: "~> 1.13",
+      elixir: "~> 1.17",
       elixirc_paths: elixirc_paths(Mix.env()),
       start_permanent: Mix.env() == :prod,
       deps: deps(),
@@ -41,7 +41,7 @@ defmodule GrowthBook.MixProject do
       {:ex_doc, "~> 0.27", only: :dev, runtime: false},
       {:jason, "~> 1.3"},
       {:dialyxir, "~> 1.1", only: :dev, runtime: false},
-      {:httpoison, "~> 2.0"},
+      {:httpoison, "~> 3.0"},
       {:meck, "~> 0.9.2", only: :test}
     ]
   end

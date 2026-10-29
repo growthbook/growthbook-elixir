@@ -30,6 +30,16 @@ Furthermore, GrowthBook supports both experiments (A/B tests and multivariate te
 flags. Because all logic to run experiments and feature flags is contained in the library, there
 is virtually no added latency to running experiments or using feature flags.
 
+## Requirements
+
+- Elixir 1.17 or later
+- Erlang/OTP 27 or later
+
+Version 0.4.0 raises the minimum supported runtime as part of the HTTPoison 3 / hackney 4 security update.
+Upgrade Elixir and Erlang/OTP in development, CI, and production before updating the SDK;
+earlier runtimes are no longer supported. See the [0.4.0 migration notes](CHANGELOG.md#040-unreleased),
+including how existing dependency ranges can allow this breaking update.
+
 ## Installation
 
 Add `growthbook` to your list of dependencies in `mix.exs`:
@@ -37,7 +47,7 @@ Add `growthbook` to your list of dependencies in `mix.exs`:
 ```elixir
 def deps do
   [
-    {:growthbook, "~> 0.2"}
+    {:growthbook, "~> 0.4.0"}
   ]
 end
 ```
