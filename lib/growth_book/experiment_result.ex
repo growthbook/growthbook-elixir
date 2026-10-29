@@ -36,7 +36,7 @@ defmodule GrowthBook.ExperimentResult do
           value: term(),
           hash_used?: boolean(),
           hash_attribute: String.t(),
-          hash_value: String.t() | integer(),
+          hash_value: String.t() | number(),
           feature_id: String.t(),
           key: String.t(),
           bucket: float(),

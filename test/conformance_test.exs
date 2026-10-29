@@ -35,7 +35,9 @@ defmodule GrowthBook.ConformanceTest do
     "urlRedirect" => "URL redirects (browser only)",
     "contextualBandit" => "contextual bandits",
     "savedGroupReferencesV2.feature" => "saved groups in the context",
-    "savedGroupReferencesV2.run" => "saved groups in the context"
+    "savedGroupReferencesV2.run" => "saved groups in the context",
+    "savedGroupReferencesRemote.evalCondition" => "remote saved groups",
+    "savedGroupReferencesRemote.feature" => "remote saved groups"
   }
 
   test "every spec section is run or listed as unsupported" do
@@ -140,8 +142,9 @@ defmodule GrowthBook.ConformanceTest do
       test "equal weights for #{count}" do
         count = unquote(count)
 
-        assert unquote(expected) ==
-                 GrowthBook.Helpers.get_equal_weights(count) |> Enum.map(&Float.round(&1, 8))
+        # Rounded on both sides, since the expected weights may be rounded or not
+        assert Enum.map(unquote(expected), &round_number/1) ==
+                 GrowthBook.Helpers.get_equal_weights(count) |> Enum.map(&round_number/1)
       end
     end
   end

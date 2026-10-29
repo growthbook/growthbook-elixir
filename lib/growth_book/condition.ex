@@ -367,6 +367,8 @@ defmodule GrowthBook.Condition do
   # Only two numbers or two strings are ordered; strings compare as text
   defp eval_operator_condition(op, left, right, _ctx) when op in @order_operators do
     if orderable?(left, right) do
+      {left, right} = utf16_order_keys(left, right)
+
       case op do
         "$lt" -> left < right
         "$lte" -> left <= right
@@ -463,6 +465,8 @@ defmodule GrowthBook.Condition do
   defp eval_operator_condition(op, _left, _right, _ctx) when op in ["$regex", "$regexi"],
     do: false
 
+  # A missing attribute is null, like in the JS SDK
+  defp eval_operator_condition("$type", :undefined, right, _ctx), do: right == "null"
   defp eval_operator_condition("$type", left, right, _ctx), do: get_type(left) == right
 
   # Keys this SDK knows, but on a condition rather than on a value, where they never match
@@ -502,6 +506,21 @@ defmodule GrowthBook.Condition do
   defp orderable?(left, right) when is_number(left) and is_number(right), do: true
   defp orderable?(left, right) when is_binary(left) and is_binary(right), do: true
   defp orderable?(_left, _right), do: false
+
+  # JavaScript orders strings by UTF-16 code unit, so a character outside the BMP (a surrogate
+  # pair) sorts before U+E000..U+FFFF. UTF-8 bytes sort by code point, which only differs when a
+  # string has such a character, which takes four bytes in UTF-8.
+  defp utf16_order_keys(left, right) when is_binary(left) and is_binary(right) do
+    if astral?(left) or astral?(right),
+      do: {to_utf16(left), to_utf16(right)},
+      else: {left, right}
+  end
+
+  defp utf16_order_keys(left, right), do: {left, right}
+
+  defp astral?(string), do: :binary.match(string, Enum.map(0xF0..0xF4, &<<&1>>)) != :nomatch
+
+  defp to_utf16(string), do: :unicode.characters_to_binary(string, :utf8, {:utf16, :big})
 
   # Like JavaScript's `===`: arrays and objects are never equal, and a missing attribute is null
   @spec strict_equal?(term(), term()) :: boolean()
@@ -584,6 +603,19 @@ defmodule GrowthBook.Condition do
   defp do_get_path(value, [key | path]) when is_map_key(value, key) do
     %{^key => next_value} = value
     do_get_path(next_value, path)
+  end
+
+  # A segment such as "0" indexes into a list, like JavaScript's `tags[0]`
+  defp do_get_path(value, [key | path]) when is_list(value) do
+    case Integer.parse(key) do
+      {index, ""} when index >= 0 ->
+        if Integer.to_string(index) == key and index < length(value),
+          do: do_get_path(Enum.at(value, index), path),
+          else: :undefined
+
+      _not_an_index ->
+        :undefined
+    end
   end
 
   defp do_get_path(_value, _path), do: :undefined

@@ -41,14 +41,11 @@ defmodule GrowthBook.Helpers do
       do: false
 
   def included_in_rollout?(attributes, seed, hash_attribute, range, coverage, hash_version) do
-    hash_attribute = coalesce(hash_attribute, "id")
-    hash_value = attributes[hash_attribute] || ""
-
-    case hash_value do
-      "" ->
+    case hash_value(attributes, coalesce(hash_attribute, "id")) do
+      nil ->
         false
 
-      _ ->
+      hash_value ->
         n = Hash.hash(seed, hash_value, hash_version(hash_version))
 
         case {range, coverage} do
@@ -57,6 +54,23 @@ defmodule GrowthBook.Helpers do
         end
     end
   end
+
+  @doc """
+  Returns the attribute's value if it can identify a user, otherwise `nil`.
+
+  Only a non-empty string or a non-zero number can. Anything else, such as `0`, `true`, a list
+  or a map, counts as missing, like in the JS SDK.
+  """
+  @spec hash_value(map() | nil, String.t()) :: String.t() | number() | nil
+  def hash_value(attributes, attribute) when is_map(attributes) do
+    case Map.get(attributes, attribute) do
+      value when is_binary(value) and value != "" -> value
+      value when is_number(value) and value != 0 -> value
+      _missing -> nil
+    end
+  end
+
+  def hash_value(_attributes, _attribute), do: nil
 
   @spec coalesce([any()]) :: any()
   @spec coalesce(any(), any()) :: any()
@@ -144,11 +158,11 @@ defmodule GrowthBook.Helpers do
     end
   end
 
+  # JavaScript truthiness: "off", [] and %{} are all on
   @doc false
   @spec cast_boolish(term()) :: boolean()
-  def cast_boolish("off"), do: false
   def cast_boolish(""), do: false
-  def cast_boolish(0), do: false
+  def cast_boolish(n) when is_number(n) and n == 0, do: false
   def cast_boolish(false), do: false
   def cast_boolish(nil), do: false
   def cast_boolish(:undefined), do: false

@@ -106,7 +106,7 @@ defmodule GrowthBook do
         else: {true, variation_id}
 
     hash_attribute = experiment.hash_attribute || "id"
-    hash_value = context.attributes[hash_attribute] || ""
+    hash_value = Helpers.hash_value(context.attributes, hash_attribute) || ""
 
     meta =
       if is_list(experiment.meta) do
@@ -231,14 +231,11 @@ defmodule GrowthBook do
   end
 
   defp filtered_out?(%Context{} = context, %Filter{} = filter) do
-    hash_attribute = filter.attribute
-    hash_value = context.attributes[hash_attribute] || ""
-
-    case hash_value do
-      "" ->
+    case Helpers.hash_value(context.attributes, filter.attribute) do
+      nil ->
         true
 
-      _ ->
+      hash_value ->
         n = Hash.hash(filter.seed, hash_value, filter.hash_version)
         not Enum.any?(filter.ranges, &Helpers.in_range?(n, &1))
     end
@@ -334,21 +331,14 @@ defmodule GrowthBook do
     end
   end
 
+  # Like the JS SDK, the fallback attribute is only used with sticky bucketing, which this SDK
+  # doesn't support yet
   defp get_experiment_hash_value(%Context{} = context, %Experiment{} = exp) do
     hash_attribute = exp.hash_attribute || "id"
-    hash_value = context.attributes[hash_attribute] || ""
 
-    case hash_value do
-      "" -> get_experiment_fallback_value(context, exp)
-      _ -> {:ok, hash_attribute, hash_value}
-    end
-  end
-
-  defp get_experiment_fallback_value(%Context{} = context, %Experiment{} = exp) do
-    case {exp.fallback_attribute, context.attributes[exp.fallback_attribute]} do
-      {nil, _} -> {:error, "empty fallback attribute"}
-      {_, nil} -> {:error, "empty fallback attribute value"}
-      {attr, val} -> {:ok, attr, val}
+    case Helpers.hash_value(context.attributes, hash_attribute) do
+      nil -> {:error, "missing hash attribute"}
+      hash_value -> {:ok, hash_attribute, hash_value}
     end
   end
 
