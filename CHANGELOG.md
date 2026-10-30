@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.4.0 (Unreleased)
+## 0.4.0 (2026-10-30)
 
 ### Breaking changes
 
@@ -14,6 +14,20 @@ Before upgrading:
 1. Check your versions with `elixir --version`.
 2. Upgrade Elixir and Erlang/OTP in development, CI, production, and any deployment images to a compatible pair meeting both minimums.
 3. Set the SDK dependency to `{:growthbook, "~> 0.4.0"}`, run `mix deps.update growthbook`, and test your application before deploying.
+
+### Breaking changes in evaluation (SDK spec 0.12.0)
+
+- Targeting conditions are strict about types. Values are no longer converted between types (`"10"` doesn't match `10`, and `0` doesn't match a missing attribute), and negated operators always give the opposite result of their positive form. Two strings compare as text, booleans can't be compared with greater than or less than, and version operators need two strings or two numbers.
+- Conditions that use an operator or saved group type this SDK doesn't support always fail, even under `$not` or `$nor`.
+- Only strings and numbers can be hash attributes. Other values (booleans, lists, maps, `0` and `""`) count as missing, so the user isn't included in the experiment or rollout. Whole-number floats hash like integers (`1.0` like `1`).
+- Hashing uses UTF-16 code units, like the JavaScript SDK. Bucketing only changes for ids and experiment or feature keys that contain non-ASCII characters (such as `é`, CJK or emoji).
+- Percentage rollouts no longer include one extra hash bucket.
+- Experiments no longer use `fallbackAttribute`. The JavaScript SDK only uses it with sticky bucketing, which this SDK doesn't support.
+- A feature value of `"off"` is now on, matching JavaScript truthiness.
+
+### Added
+
+- `GrowthBook.prune_condition/3` and `GrowthBook.reduce_payload/2` shrink a payload to what one user needs.
 
 ### Dependency range warning
 
