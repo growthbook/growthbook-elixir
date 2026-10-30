@@ -37,7 +37,7 @@ is virtually no added latency to running experiments or using feature flags.
 
 Version 0.4.0 raises the minimum supported runtime as part of the HTTPoison 3 / hackney 4 security update.
 Upgrade Elixir and Erlang/OTP in development, CI, and production before updating the SDK;
-earlier runtimes are no longer supported. See the [0.4.0 migration notes](CHANGELOG.md#040-unreleased),
+earlier runtimes are no longer supported. See the [0.4.0 migration notes](CHANGELOG.md#040-2026-10-30),
 including how existing dependency ranges can allow this breaking update.
 
 ## Installation
