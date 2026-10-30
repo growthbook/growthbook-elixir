@@ -13,6 +13,7 @@ defmodule GrowthBook.Config do
     VariationMeta,
     BucketRange,
     Filter,
+    Helpers,
     ParentCondition
   }
 
@@ -83,7 +84,7 @@ defmodule GrowthBook.Config do
         weights: Map.get(feature_rule, "weights"),
         namespace: namespace,
         hash_attribute: Map.get(feature_rule, "hashAttribute"),
-        hash_version: Map.get(feature_rule, "hashVersion") || 1,
+        hash_version: feature_rule |> Map.get("hashVersion") |> Helpers.hash_version(),
         range: range,
         ranges: ranges,
         meta: meta,
@@ -127,6 +128,8 @@ defmodule GrowthBook.Config do
       condition: Map.get(experiment_config, "condition"),
       coverage: experiment_config |> Map.get("coverage") |> ensure_float(),
       hash_attribute: Map.get(experiment_config, "hashAttribute"),
+      hash_version: experiment_config |> Map.get("hashVersion") |> Helpers.hash_version(),
+      seed: Map.get(experiment_config, "seed"),
       force: Map.get(experiment_config, "force"),
       weights: Map.get(experiment_config, "weights"),
       ranges: ranges,

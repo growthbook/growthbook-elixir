@@ -106,7 +106,7 @@ defmodule GrowthBook do
         else: {true, variation_id}
 
     hash_attribute = experiment.hash_attribute || "id"
-    hash_value = context.attributes[hash_attribute] || ""
+    hash_value = Helpers.hash_value(context.attributes, hash_attribute) || ""
 
     meta =
       if is_list(experiment.meta) do
@@ -215,8 +215,14 @@ defmodule GrowthBook do
 
   defp eval_rule_condition(_, nil), do: true
 
-  defp eval_rule_condition(attributes, condition),
-    do: Condition.eval_condition(attributes, condition)
+  # A condition that raises, such as a malformed one, fails rather than breaking evaluation
+  defp eval_rule_condition(attributes, condition) do
+    Condition.eval_condition(attributes, condition)
+  rescue
+    error ->
+      Logger.debug("Condition evaluation failed: #{Exception.message(error)}")
+      false
+  end
 
   defp filtered_out?(_context, nil), do: false
 
@@ -225,14 +231,11 @@ defmodule GrowthBook do
   end
 
   defp filtered_out?(%Context{} = context, %Filter{} = filter) do
-    hash_attribute = filter.attribute
-    hash_value = context.attributes[hash_attribute] || ""
-
-    case hash_value do
-      "" ->
+    case Helpers.hash_value(context.attributes, filter.attribute) do
+      nil ->
         true
 
-      _ ->
+      hash_value ->
         n = Hash.hash(filter.seed, hash_value, filter.hash_version)
         not Enum.any?(filter.ranges, &Helpers.in_range?(n, &1))
     end
@@ -266,7 +269,13 @@ defmodule GrowthBook do
         exp.ranges ||
           Helpers.get_bucket_ranges(variations_count, exp.coverage || 1.0, exp.weights || [])
 
-      hash = Hash.hash(exp.seed || exp.key, hash_value, exp.hash_version || 1)
+      hash =
+        Hash.hash(
+          Helpers.coalesce(exp.seed, exp.key),
+          hash_value,
+          Helpers.hash_version(exp.hash_version)
+        )
+
       variation_id = Helpers.choose_variation(hash, bucket_ranges)
 
       cond do
@@ -322,23 +331,69 @@ defmodule GrowthBook do
     end
   end
 
+  # Like the JS SDK, the fallback attribute is only used with sticky bucketing, which this SDK
+  # doesn't support yet
   defp get_experiment_hash_value(%Context{} = context, %Experiment{} = exp) do
     hash_attribute = exp.hash_attribute || "id"
-    hash_value = context.attributes[hash_attribute] || ""
 
-    case hash_value do
-      "" -> get_experiment_fallback_value(context, exp)
-      _ -> {:ok, hash_attribute, hash_value}
+    case Helpers.hash_value(context.attributes, hash_attribute) do
+      nil -> {:error, "missing hash attribute"}
+      hash_value -> {:ok, hash_attribute, hash_value}
     end
   end
 
-  defp get_experiment_fallback_value(%Context{} = context, %Experiment{} = exp) do
-    case {exp.fallback_attribute, context.attributes[exp.fallback_attribute]} do
-      {nil, _} -> {:error, "empty fallback attribute"}
-      {_, nil} -> {:error, "empty fallback attribute value"}
-      {attr, val} -> {:ok, attr, val}
-    end
-  end
+  @doc """
+  Partially evaluates a condition when only some attributes are known, e.g. on a server.
+
+  Attributes missing from `attributes` are unknown, and so is any nested path. Returns `true` or
+  `false` once the result can't depend on unknown attributes, otherwise the condition minus every
+  branch that is already decided. `saved_groups` is the payload's `savedGroups` map.
+
+  ## Examples
+
+      iex> GrowthBook.prune_condition(%{"id" => "123"}, %{"id" => "123", "country" => "US"})
+      %{"country" => "US"}
+
+      iex> GrowthBook.prune_condition(%{"id" => "123"}, %{"id" => "456"})
+      false
+  """
+  @spec prune_condition(Context.attributes(), Condition.t(), Condition.saved_groups()) ::
+          Condition.t() | boolean()
+  defdelegate prune_condition(attributes, condition, saved_groups \\ %{}), to: Condition
+
+  @doc """
+  Shrinks a features payload for a user whose attributes are only partly known, e.g. on a server
+  bootstrapping a client SDK. The result evaluates the same as the full payload for anyone who
+  agrees with the known attributes.
+
+  `payload` is the decoded, decrypted payload map from the GrowthBook API (with `"features"`,
+  `"experiments"`, `"savedGroups"`, ...). Other keys are kept as they are.
+
+  ## Options
+
+    * `:attributes` - the attributes known on the server. Conditions on them are decided and
+      removed; conditions on other attributes are kept for the client.
+    * `:include` - keep only the features and auto experiments that match every filter. A keyword
+      list with `:projects`, `:tags` and `:custom_fields` (a map of field name to accepted values).
+    * `:exclude` - remove the features and auto experiments that match any filter, same shape.
+    * `:prerequisites` - `:keep` (default) keeps the prerequisites of what is kept even when the
+      filters remove them, so the client evaluates the same as the full payload. `:filter` applies
+      the filters to them too.
+
+  ## Examples
+
+      iex> GrowthBook.reduce_payload(
+      ...>   %{"features" => %{"f" => %{"defaultValue" => 0, "rules" => [%{"condition" => %{"id" => "123"}, "force" => 1}]}}},
+      ...>   attributes: %{"id" => "123"}
+      ...> )
+      %{
+        "features" => %{"f" => %{"defaultValue" => 0, "rules" => [%{"force" => 1}]}},
+        "experiments" => [],
+        "savedGroups" => %{}
+      }
+  """
+  @spec reduce_payload(map(), keyword()) :: map()
+  defdelegate reduce_payload(payload, opts \\ []), to: GrowthBook.PayloadReducer, as: :reduce
 
   @doc """
   Initialize GrowthBook with the feature repository configuration.

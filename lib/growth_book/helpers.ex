@@ -36,23 +36,41 @@ defmodule GrowthBook.Helpers do
           boolean()
   def included_in_rollout?(_attributes, _seed, _hash_attribute, nil, nil, _hash_version), do: true
 
-  def included_in_rollout?(attributes, seed, hash_attribute, range, coverage, hash_version) do
-    hash_attribute = coalesce(hash_attribute, "id")
-    hash_value = attributes[hash_attribute] || ""
+  def included_in_rollout?(_attributes, _seed, _hash_attribute, nil, coverage, _hash_version)
+      when coverage == 0,
+      do: false
 
-    case hash_value do
-      "" ->
+  def included_in_rollout?(attributes, seed, hash_attribute, range, coverage, hash_version) do
+    case hash_value(attributes, coalesce(hash_attribute, "id")) do
+      nil ->
         false
 
-      _ ->
-        n = Hash.hash(seed, hash_value, hash_version || 1)
+      hash_value ->
+        n = Hash.hash(seed, hash_value, hash_version(hash_version))
 
         case {range, coverage} do
-          {nil, coverage} -> n <= coverage
+          {nil, coverage} -> n < coverage
           {range, _} -> in_range?(n, range)
         end
     end
   end
+
+  @doc """
+  Returns the attribute's value if it can identify a user, otherwise `nil`.
+
+  Only a non-empty string or a non-zero number can. Anything else, such as `0`, `true`, a list
+  or a map, counts as missing, like in the JS SDK.
+  """
+  @spec hash_value(map() | nil, String.t()) :: String.t() | number() | nil
+  def hash_value(attributes, attribute) when is_map(attributes) do
+    case Map.get(attributes, attribute) do
+      value when is_binary(value) and value != "" -> value
+      value when is_number(value) and value != 0 -> value
+      _missing -> nil
+    end
+  end
+
+  def hash_value(_attributes, _attribute), do: nil
 
   @spec coalesce([any()]) :: any()
   @spec coalesce(any(), any()) :: any()
@@ -61,6 +79,10 @@ defmodule GrowthBook.Helpers do
   def coalesce([nil | next]), do: coalesce(next)
   def coalesce(["" | next]), do: coalesce(next)
   def coalesce([v | _]), do: v
+
+  @spec hash_version(integer() | nil) :: integer()
+  def hash_version(v) when v in [nil, 0], do: 1
+  def hash_version(v), do: v
 
   @doc """
   Returns an list of floats with `count` items that are all equal and sum to 1.
@@ -136,11 +158,11 @@ defmodule GrowthBook.Helpers do
     end
   end
 
+  # JavaScript truthiness: "off", [] and %{} are all on
   @doc false
   @spec cast_boolish(term()) :: boolean()
-  def cast_boolish("off"), do: false
   def cast_boolish(""), do: false
-  def cast_boolish(0), do: false
+  def cast_boolish(n) when is_number(n) and n == 0, do: false
   def cast_boolish(false), do: false
   def cast_boolish(nil), do: false
   def cast_boolish(:undefined), do: false

@@ -96,7 +96,7 @@ defmodule GrowthBook.ParentCondition do
           {:error, %CyclingError{message: error}}
 
         %FeatureResult{value: value} ->
-          case Condition.eval_condition(%{"value" => value}, condition) do
+          case eval_parent_condition(%{"value" => value}, condition) do
             true ->
               eval(context, rest, path)
 
@@ -110,5 +110,15 @@ defmodule GrowthBook.ParentCondition do
           end
       end
     end
+  end
+
+  # A malformed condition does not match, like the JS SDK
+  @spec eval_parent_condition(map(), Condition.t()) :: boolean()
+  defp eval_parent_condition(attributes, condition) do
+    Condition.eval_condition(attributes, condition || %{})
+  rescue
+    error ->
+      Logger.debug("Invalid prerequisite condition: #{Exception.message(error)}")
+      false
   end
 end
